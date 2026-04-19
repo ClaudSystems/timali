@@ -126,3 +126,25 @@ assets {
     minifyJs = true
     minifyCss = true
 }
+
+// AUTOMAÇÃO FRONTEND (REACT)
+task buildFrontend(type: Exec) {
+    workingDir '../frontend'
+    group = 'build'
+    description = 'Gera o build do React'
+
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine 'npm.cmd', 'run', 'build'
+    } else {
+        commandLine 'npm', 'run', 'build'
+    }
+}
+
+task copyFrontendResources(type: Copy) {
+    dependsOn buildFrontend
+    from '../frontend/build'
+    into 'src/main/resources/public'
+}
+
+// Faz com que o processResources dependa da cópia do frontend
+processResources.dependsOn copyFrontendResources
