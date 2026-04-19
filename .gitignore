@@ -1,0 +1,22 @@
+# Grails / Gradle
+.gradle/
+build/
+out/
+*.iws
+*.iml
+*.ipr
+.idea/
+.classpath
+.project
+.settings/
+bin/
+
+# Frontend / React
+frontend/node_modules/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.js
+
+# Sistema
+.DS_Store
+Thumbs.db
