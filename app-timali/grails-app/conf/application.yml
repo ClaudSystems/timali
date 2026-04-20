@@ -35,7 +35,9 @@ grails:
 
             filterChain:
                 chainMap:
+                    # CRÍTICO: OPTIONS bypass tudo sem filtros
                     - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'none'}
+
                     - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
                     - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
 
