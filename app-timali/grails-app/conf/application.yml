@@ -8,7 +8,24 @@ grails:
             events: false
 
     cors:
-        enabled: false
+        enabled: true
+        mappings:
+            '/**':
+                allowedOrigins:
+                    - 'http://localhost:3000'
+                allowedMethods:
+                    - 'GET'
+                    - 'POST'
+                    - 'PUT'
+                    - 'DELETE'
+                    - 'OPTIONS'
+                    - 'PATCH'
+                allowedHeaders:
+                    - 'Content-Type'
+                    - 'Authorization'
+                    - 'X-Requested-With'
+                allowCredentials: true
+                maxAge: 3600
 
     plugin:
         springsecurity:
@@ -17,6 +34,10 @@ grails:
                 authorityJoinClassName: 'app.timali.UsuarioRole'
             authority:
                 className: 'app.timali.Role'
+
+            # Habilitar CORS no Spring Security
+            cors:
+                enabled: true
 
             controllerAnnotations:
                 staticRules:
@@ -37,7 +58,7 @@ grails:
                 chainMap:
                     # CRÍTICO: OPTIONS bypass tudo sem filtros
                     - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'none'}
-
+                    
                     - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
                     - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
 
@@ -51,7 +72,7 @@ grails:
                             secret: 'timali-super-secret-key-for-jwt-2026-xyz'
                             expiration: 3600
                 cors:
-                    enabled: false
+                    enabled: true
 
 info:
     app:
