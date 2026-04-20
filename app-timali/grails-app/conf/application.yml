@@ -7,9 +7,8 @@ grails:
         reactor:
             events: false
     
-    # Desativado para usar o filtro do resources.groovy que tem precedência absoluta
     cors:
-        enabled: false
+        enabled: false # Usando o CorsInterceptor
 
     plugin:
         springsecurity:
@@ -19,12 +18,9 @@ grails:
             authority:
                 className: 'app.timali.Role'
             
-            # Garante que o Spring Security não bloqueie requisições de pre-flight
-            auth:
-                loginFormUrl: '/api/login'
-            
             controllerAnnotations:
                 staticRules:
+                    # Permitir OPTIONS globalmente nas regras estáticas
                     - {pattern: '/**',             httpMethods: 'OPTIONS', access: ['permitAll']}
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
@@ -40,9 +36,7 @@ grails:
 
             filterChain:
                 chainMap:
-                    # NENHUM filtro de segurança para OPTIONS. 
-                    # O CORS filter do resources.groovy vai lidar com isso.
-                    - {pattern: '/**',          httpMethods: 'OPTIONS', filters: 'none'}
+                    # O interceptor lidará com o OPTIONS antes de chegar aqui se possível
                     - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
                     - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
 
@@ -56,7 +50,7 @@ grails:
                             secret: 'timali-super-secret-key-for-jwt-2026-xyz'
                             expiration: 3600
                 cors:
-                    enabled: false # Usando o filtro do resources.groovy
+                    enabled: false
 
 info:
     app:
