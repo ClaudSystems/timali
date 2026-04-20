@@ -36,15 +36,15 @@ configurations {
 
 dependencies {
     developmentOnly("org.springframework.boot:spring-boot-devtools")
-    
+
     // Micronaut BOM
     implementation platform("io.micronaut:micronaut-bom:3.10.3")
     implementation "io.micronaut:micronaut-inject"
     implementation "io.micronaut:micronaut-runtime"
     implementation "io.micronaut:micronaut-validation"
     compileOnly "io.micronaut:micronaut-inject-groovy"
-    
-    // SPRING SECURITY
+
+    // SPRING SECURITY - VERSÕES CORRETAS PARA GRAILS 5.3.5
     implementation "org.grails.plugins:spring-security-core:5.1.1"
     implementation "org.grails.plugins:spring-security-rest:3.0.1"
 
@@ -70,13 +70,12 @@ dependencies {
     implementation "org.grails.plugins:events"
     implementation "org.grails.plugins:gsp"
     profile "org.grails.profiles:web"
-    
+
     runtimeOnly "org.postgresql:postgresql:42.7.2"
-    runtimeOnly "com.h2database:h2"
-    runtimeOnly "org.apache.tomcat:tomcat-jdbc"
+     runtimeOnly "org.apache.tomcat:tomcat-jdbc"
     runtimeOnly "javax.xml.bind:jaxb-api:2.3.1"
     runtimeOnly "com.bertramlabs.plugins:asset-pipeline-grails:3.4.7"
-    
+
     testImplementation "org.grails:grails-gorm-testing-support"
     testImplementation "org.mockito:mockito-core"
     testImplementation "org.grails:grails-web-testing-support"
@@ -86,13 +85,16 @@ dependencies {
 bootRun {
     ignoreExitValue true
     jvmArgs(
-        '-Dspring.output.ansi.enabled=always', 
-        '-noverify', 
-        '-XX:TieredStopAtLevel=1',
-        '-Xmx1024m')
+            '-Dspring.output.ansi.enabled=always',
+            '-noverify',
+            '-XX:TieredStopAtLevel=1',
+            '-Xmx1024m')
     sourceResources sourceSets.main
     String springProfilesActive = 'spring.profiles.active'
     systemProperty springProfilesActive, System.getProperty(springProfilesActive)
+
+    // Configuração JWT via system property (solução garantida)
+    systemProperty 'grails.plugin.springsecurity.rest.token.storage.jwt.secret', 'timali-super-secret-key-for-jwt-2026-xyz-must-be-long-enough-to-work'
 }
 
 tasks.withType(GroovyCompile) {

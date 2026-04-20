@@ -1,16 +1,121 @@
-cors:
-  allowed-origins:
-    - "http://example.com"
-    - "http://another-example.com"
-  allowed-methods:
-    - "GET"
-    - "POST"
-    - "PUT"
-    - "DELETE"
-  allowed-headers:
-    - "Authorization"
-    - "Content-Type"
-  allow-credentials: true
-  max-age: 3600
-  exposed-headers:
-    - "Authorization"
+---
+grails:
+  profile: web
+  codegen:
+    defaultPackage: app.timali
+  gorm:
+    reactor:
+      events: false
+
+  # Configuração CORS Nativa do Grails (Nível da Aplicação)
+  cors:
+    enabled: true
+    mappings:
+      '/**':
+        allowedOrigins:
+          - 'http://localhost:3000'
+        allowedMethods:
+          - 'GET'
+          - 'POST'
+          - 'PUT'
+          - 'DELETE'
+          - 'OPTIONS'
+          - 'PATCH'
+        allowedHeaders:
+          - '*'
+          - 'Authorization'
+          - 'Content-Type'
+        allowCredentials: true
+        maxAge: 3600
+
+  plugin:
+    springsecurity:
+      userLookup:
+        userDomainClassName: 'app.timali.Usuario'
+        authorityJoinClassName: 'app.timali.UsuarioRole'
+      authority:
+        className: 'app.timali.Role'
+
+      # Habilita o suporte a CORS no plugin Spring Security
+      cors:
+        enabled: true
+
+      # Desativa CSRF (Obrigatório para APIs REST stateless)
+      csrf:
+        active: false
+
+      # Regras de acesso estático
+      controllerAnnotations:
+        staticRules:
+          - {pattern: '/',               access: ['permitAll']}
+          - {pattern: '/error',          access: ['permitAll']}
+          - {pattern: '/api/login',      access: ['permitAll']}
+          - {pattern: '/api/**',         access: ['isFullyAuthenticated()']}
+          - {pattern: '/**',             access: ['permitAll']}
+
+      # Cadeia de filtros explícita para garantir ordem de execução
+      filterChain:
+        chainMap:
+          # REGRA 1: Intercepta OPTIONS ANTES de qualquer segurança
+          - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'corsFilter,anonymousAuthenticationFilter'}
+
+          # REGRA 2: Login (público, sem validação de token JWT)
+          - {pattern: '/api/login',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter,-restTokenValidationFilter'}
+
+          # REGRA 3: Resto da API (requer token válido)
+          - {pattern: '/api/**',         filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
+
+          # REGRA 4: Padrão para outras rotas
+          - {pattern: '/**',             filters: 'JOINED_FILTERS'}
+
+      # Configuração REST e JWT
+      rest:
+        login:
+          active: true
+          endpointUrl: '/api/login'
+
+        # Configuração JWT Direta (Necessário para algumas versões do plugin)
+        jwt:
+          secret: 'timali-super-secret-key-for-jwt-2026-xyz-must-be-long-enough-to-work'
+          expiration: 3600
+
+        # Configuração de Armazenamento de Token (Onde o erro ocorria)
+        token:
+          storage:
+            jwt:
+              # Esta é a propriedade exata que o erro reclama
+              secret: 'timali-super-secret-key-for-jwt-2026-xyz-must-be-long-enough-to-work'
+              expiration: 3600
+
+        cors:
+          enabled: true
+
+info:
+  app:
+    name: '@info.app.name@'
+    version: '@info.app.version@'
+    grailsVersion: '@info.app.grailsVersion@'
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  devtools:
+    restart:
+      enabled: false # Desativa restart automático para evitar cache de config
+
+hibernate:
+  cache:
+    queries: false
+  dialect: org.hibernate.dialect.PostgreSQLDialect
+
+dataSource:
+  pooled: true
+  driverClassName: org.postgresql.Driver
+  username: timali_user
+  password: timali_password
+
+environments:
+  development:
+    dataSource:
+      dbCreate: update
+      url: jdbc:postgresql://localhost:5433/timali_db
