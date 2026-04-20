@@ -41,23 +41,22 @@ grails:
 
             controllerAnnotations:
                 staticRules:
-                    - {pattern: '/**', httpMethods: 'OPTIONS', access: ['permitAll'], filters: 'none'}
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
                     - {pattern: '/index',          access: ['permitAll']}
                     - {pattern: '/index.gsp',      access: ['permitAll']}
-                    - {pattern: '/api/login',      access: ['permitAll']}
+                    - {pattern: '/api/login',      access: ['permitAll'], filters: 'anonymousAuthenticationFilter'}
                     - {pattern: '/assets/**',      access: ['permitAll']}
                     - {pattern: '/**/js/**',       access: ['permitAll']}
                     - {pattern: '/**/css/**',      access: ['permitAll']}
                     - {pattern: '/**/images/**',   access: ['permitAll']}
                     - {pattern: '/**/favicon.ico', access: ['permitAll']}
+                    - {pattern: '/**', httpMethods: 'OPTIONS', access: ['permitAll']}
                     - {pattern: '/api/**',         access: ['isFullyAuthenticated()']}
 
             filterChain:
                 chainMap:
-                    # CRÍTICO: OPTIONS bypass tudo sem filtros
-                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'none'}
+                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'corsFilter'}
                     
                     - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
                     - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
