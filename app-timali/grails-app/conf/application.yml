@@ -46,7 +46,6 @@ grails:
 
             controllerAnnotations:
                 staticRules:
-                    # Permitir OPTIONS em todas as rotas
                     - {pattern: '/**', httpMethods: 'OPTIONS', access: ['permitAll']}
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
@@ -59,16 +58,21 @@ grails:
                     - {pattern: '/**/css/**',      access: ['permitAll']}
                     - {pattern: '/**/images/**',   access: ['permitAll']}
                     - {pattern: '/**/favicon.ico', access: ['permitAll']}
-                    # Restrição das outras APIs
                     - {pattern: '/api/**',         access: ['isFullyAuthenticated()']}
 
             filterChain:
                 chainMap:
-                    # Garantir que OPTIONS não passa por filtros de autenticação
-                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'none'}
+                    # OPTIONS deve passar apenas pelo corsFilter
+                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'corsFilter'}
                     
-                    - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
-                    - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
+                    # Login sem filtros de autenticação
+                    - {pattern: '/api/login', filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
+                    
+                    # API requer autenticação
+                    - {pattern: '/api/**', filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
+                    
+                    # Resto da aplicação
+                    - {pattern: '/**', filters: 'JOINED_FILTERS'}
 
             rest:
                 login:
