@@ -43,8 +43,6 @@ grails:
 
             controllerAnnotations:
                 staticRules:
-                    # Permitir explicitamente OPTIONS para todas as rotas
-                    - {pattern: '/**', httpMethods: 'OPTIONS', access: ['permitAll']}
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
                     - {pattern: '/api/login',      access: ['permitAll']}
@@ -52,8 +50,8 @@ grails:
 
             filterChain:
                 chainMap:
-                    # CRÍTICO: OPTIONS passa APENAS pelo corsFilter, ignorando autenticação
-                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'corsFilter'}
+                    # Regra prioritária para tratar OPTIONS com CORS e permitir anónimo
+                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'corsFilter,anonymousAuthenticationFilter'}
                     
                     # API de login
                     - {pattern: '/api/login',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
