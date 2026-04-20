@@ -7,6 +7,7 @@ grails:
         reactor:
             events: false
 
+    # Configuração CORS Nativa do Grails (Garante headers básicos)
     cors:
         enabled: true
         mappings:
@@ -22,6 +23,8 @@ grails:
                     - 'PATCH'
                 allowedHeaders:
                     - '*'
+                    - 'Authorization'
+                    - 'Content-Type'
                 allowCredentials: true
                 maxAge: 3600
 
@@ -33,11 +36,13 @@ grails:
             authority:
                 className: 'app.timali.Role'
 
-            # Habilitar CORS no Spring Security
+            # Habilitar suporte CORS no plugin Spring Security
             cors:
                 enabled: true
+                # Garante que as configurações acima do grails.cors sejam respeitadas
+                useGrailsCorsConfig: true
 
-            # Desativar CSRF (Essencial para APIs REST)
+            # Desativar CSRF (Essencial para APIs REST stateless)
             csrf:
                 active: false
 
@@ -45,21 +50,26 @@ grails:
                 staticRules:
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
+                    # O login deve ser público
                     - {pattern: '/api/login',      access: ['permitAll']}
+                    # O resto da API requer autenticação
                     - {pattern: '/api/**',         access: ['isFullyAuthenticated()']}
+                    # Fallback para outras rotas
+                    - {pattern: '/**',             access: ['permitAll']}
 
             filterChain:
                 chainMap:
-                    # Regra prioritária para tratar OPTIONS com CORS e permitir anónimo
+                    # REGRA CRÍTICA 1: Intercepta OPTIONS antes de qualquer segurança
+                    # Usa apenas o corsFilter e o anonymousAuthenticationFilter
                     - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'corsFilter,anonymousAuthenticationFilter'}
-                    
-                    # API de login
-                    - {pattern: '/api/login',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
-                    
-                    # Resto da API
+
+                    # REGRA CRÍTICA 2: Login sem validação de token JWT, mas com outros filtros necessários
+                    - {pattern: '/api/login',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter,-restTokenValidationFilter'}
+
+                    # REGRA CRÍTICA 3: Resto da API com validação de Token
                     - {pattern: '/api/**',         filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
-                    
-                    # Resto da aplicação
+
+                    # Regra padrão para outras rotas
                     - {pattern: '/**',             filters: 'JOINED_FILTERS'}
 
             rest:
@@ -73,6 +83,9 @@ grails:
                             expiration: 3600
                 cors:
                     enabled: true
+                    # Explicitamente permitir a origem também na config do REST
+                    allowedOrigins:
+                        - 'http://localhost:3000'
 
 info:
     app:
