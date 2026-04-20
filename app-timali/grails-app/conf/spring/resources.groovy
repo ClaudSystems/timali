@@ -14,5 +14,7 @@ beans = {
         registerCorsConfiguration("/**", config)
     }
 
-    corsFilter(CorsFilter, ref('corsConfigurationSource'))
+    corsFilter(CorsFilter, ref('corsConfigurationSource')) {
+        order = -100
+    }
 }
