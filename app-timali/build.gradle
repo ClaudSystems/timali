@@ -36,8 +36,18 @@ configurations {
 
 dependencies {
     developmentOnly("org.springframework.boot:spring-boot-devtools")
+    
+    // Micronaut BOM
+    implementation platform("io.micronaut:micronaut-bom:3.10.3")
+    implementation "io.micronaut:micronaut-inject"
+    implementation "io.micronaut:micronaut-runtime"
+    implementation "io.micronaut:micronaut-validation"
     compileOnly "io.micronaut:micronaut-inject-groovy"
-    console "org.grails:grails-console"
+    
+    // SPRING SECURITY
+    implementation "org.grails.plugins:spring-security-core:5.1.1"
+    implementation "org.grails.plugins:spring-security-rest:3.0.1"
+
     implementation "org.springframework.boot:spring-boot-starter-logging"
     implementation "org.springframework.boot:spring-boot-starter-validation"
     implementation "org.springframework.boot:spring-boot-autoconfigure"
@@ -60,22 +70,17 @@ dependencies {
     implementation "org.grails.plugins:events"
     implementation "org.grails.plugins:gsp"
     profile "org.grails.profiles:web"
-    runtimeOnly "org.glassfish.web:el-impl:2.2.1-b05"
+    
     runtimeOnly "org.postgresql:postgresql:42.7.2"
     runtimeOnly "com.h2database:h2"
     runtimeOnly "org.apache.tomcat:tomcat-jdbc"
     runtimeOnly "javax.xml.bind:jaxb-api:2.3.1"
     runtimeOnly "com.bertramlabs.plugins:asset-pipeline-grails:3.4.7"
-    testImplementation "io.micronaut:micronaut-inject-groovy"
+    
     testImplementation "org.grails:grails-gorm-testing-support"
     testImplementation "org.mockito:mockito-core"
     testImplementation "org.grails:grails-web-testing-support"
     testImplementation "org.grails.plugins:geb"
-    testImplementation "org.seleniumhq.selenium:selenium-remote-driver:4.0.0"
-    testImplementation "org.seleniumhq.selenium:selenium-api:4.0.0"
-    testImplementation "org.seleniumhq.selenium:selenium-support:4.0.0"
-    testRuntimeOnly "org.seleniumhq.selenium:selenium-chrome-driver:4.0.0"
-    testRuntimeOnly "org.seleniumhq.selenium:selenium-firefox-driver:4.0.0"
 }
 
 bootRun {
@@ -99,53 +104,3 @@ tasks.withType(GroovyCompile) {
 tasks.withType(Test) {
     useJUnitPlatform()
 }
-
-webdriverBinaries {
-    if (!System.getenv().containsKey('GITHUB_ACTIONS')) {
-        chromedriver {
-            version = '2.45.0'
-            fallbackTo32Bit = true
-        }
-        geckodriver '0.30.0'
-    }
-}
-
-tasks.withType(Test) {
-    systemProperty "geb.env", System.getProperty('geb.env')
-    systemProperty "geb.build.reportsDir", reporting.file("geb/integrationTest")
-    if (!System.getenv().containsKey('GITHUB_ACTIONS')) {
-        systemProperty 'webdriver.chrome.driver', System.getProperty('webdriver.chrome.driver')
-        systemProperty 'webdriver.gecko.driver', System.getProperty('webdriver.gecko.driver')
-    } else {
-        systemProperty 'webdriver.chrome.driver', "${System.getenv('CHROMEWEBDRIVER')}/chromedriver"
-        systemProperty 'webdriver.gecko.driver', "${System.getenv('GECKOWEBDRIVER')}/geckodriver"
-    }
-}
-
-
-assets {
-    minifyJs = true
-    minifyCss = true
-}
-
-// AUTOMAÇÃO FRONTEND (REACT)
-task buildFrontend(type: Exec) {
-    workingDir '../frontend'
-    group = 'build'
-    description = 'Gera o build do React'
-
-    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-        commandLine 'npm.cmd', 'run', 'build'
-    } else {
-        commandLine 'npm', 'run', 'build'
-    }
-}
-
-task copyFrontendResources(type: Copy) {
-    dependsOn buildFrontend
-    from '../frontend/build'
-    into 'src/main/resources/public'
-}
-
-// Faz com que o processResources dependa da cópia do frontend
-processResources.dependsOn copyFrontendResources

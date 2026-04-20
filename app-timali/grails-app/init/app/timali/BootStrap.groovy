@@ -1,18 +1,36 @@
 package app.timali
 
+import app.timali.Usuario
+import app.timali.Role
+import app.timali.UsuarioRole
+
 class BootStrap {
 
     def init = { servletContext ->
-        Produto.withTransaction {
-            if (Produto.count() == 0) {
-                new Produto(nome: "Smartphone Samsung Galaxy", preco: 2500.00, estoque: 10).save(flush: true)
-                new Produto(nome: "Notebook Dell Inspiron", preco: 4500.50, estoque: 5).save(flush: true)
-                new Produto(nome: "Monitor LG 24'", preco: 850.00, estoque: 15).save(flush: true)
-                new Produto(nome: "Teclado Mecânico RGB", preco: 350.00, estoque: 20).save(flush: true)
-                println ">>> Dados iniciais inseridos com sucesso!"
+        
+        Usuario.withTransaction {
+            // Criar as roles se não existirem
+            def adminRole = Role.findByAuthority('ROLE_ADMIN') ?: new Role(authority: 'ROLE_ADMIN').save(flush: true)
+            def userRole = Role.findByAuthority('ROLE_USER') ?: new Role(authority: 'ROLE_USER').save(flush: true)
+
+            // Criar o utilizador Admin inicial se não existir
+            def testUser = Usuario.findByUsername('admin')
+            if (!testUser) {
+                testUser = new Usuario(
+                    username: 'admin',
+                    password: 'admin123'
+                ).save(flush: true)
+
+                // Ligar o utilizador à role de Admin
+                if (!UsuarioRole.exists(testUser.id, adminRole.id)) {
+                    UsuarioRole.create(testUser, adminRole, true)
+                }
             }
+
+            println ">>> BootStrap: Utilizador 'admin' garantido com sucesso."
         }
     }
+
     def destroy = {
     }
 }
