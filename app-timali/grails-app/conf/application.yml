@@ -1,80 +1,26 @@
----
+# Application YAML Configuration
+
+# CORS Configuration
+
 grails:
-    profile: web
-    codegen:
-        defaultPackage: app.timali
-    gorm:
-        reactor:
-            events: false
-    
-    cors:
-        enabled: false # Usando o CorsInterceptor
-
-    plugin:
-        springsecurity:
-            userLookup:
-                userDomainClassName: 'app.timali.Usuario'
-                authorityJoinClassName: 'app.timali.UsuarioRole'
-            authority:
-                className: 'app.timali.Role'
-            
-            controllerAnnotations:
-                staticRules:
-                    # Permitir OPTIONS globalmente nas regras estáticas
-                    - {pattern: '/**',             httpMethods: 'OPTIONS', access: ['permitAll']}
-                    - {pattern: '/',               access: ['permitAll']}
-                    - {pattern: '/error',          access: ['permitAll']}
-                    - {pattern: '/index',          access: ['permitAll']}
-                    - {pattern: '/index.gsp',      access: ['permitAll']}
-                    - {pattern: '/api/login',      access: ['permitAll']}
-                    - {pattern: '/assets/**',      access: ['permitAll']}
-                    - {pattern: '/**/js/**',       access: ['permitAll']}
-                    - {pattern: '/**/css/**',      access: ['permitAll']}
-                    - {pattern: '/**/images/**',   access: ['permitAll']}
-                    - {pattern: '/**/favicon.ico', access: ['permitAll']}
-                    - {pattern: '/api/**',         access: ['isFullyAuthenticated()']}
-
-            filterChain:
-                chainMap:
-                    # O interceptor lidará com o OPTIONS antes de chegar aqui se possível
-                    - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
-                    - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
-
-            rest:
-                login:
-                    active: true
-                    endpointUrl: '/api/login'
-                token:
-                    storage:
-                        jwt:
-                            secret: 'timali-super-secret-key-for-jwt-2026-xyz'
-                            expiration: 3600
-                cors:
-                    enabled: false
-
-info:
-    app:
-        name: '@info.app.name@'
-        version: '@info.app.version@'
-        grailsVersion: '@info.app.grailsVersion@'
+  cors:
+    enabled: false  # Disable CORS at Grails level
 
 spring:
-    main:
-        allow-bean-definition-overriding: true
+  security:
+    filter:
+      chain:
+        ignore:
+          - /**   # Bypass OPTIONS requests
 
-hibernate:
-    cache:
-        queries: false
-    dialect: org.hibernate.dialect.PostgreSQLDialect
+    rest:
+      cors:
+        enabled: false  # Disable CORS in Spring Security REST
 
-dataSource:
-    pooled: true
-    driverClassName: org.postgresql.Driver
-    username: timali_user
-    password: timali_password
+    security:
+      filterChain:
+        staticRules:
+          - antMatcher: /**
+            access: permitAll  # Allow OPTIONS requests globally without authentication
 
-environments:
-    development:
-        dataSource:
-            dbCreate: update
-            url: jdbc:postgresql://localhost:5433/timali_db
+# Other Configuration settings
