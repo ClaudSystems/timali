@@ -8,7 +8,7 @@ grails:
             events: false
     
     cors:
-        enabled: false # Usando o CorsInterceptor
+        enabled: false
 
     plugin:
         springsecurity:
@@ -20,8 +20,8 @@ grails:
             
             controllerAnnotations:
                 staticRules:
-                    # Permitir OPTIONS globalmente nas regras estáticas
-                    - {pattern: '/**',             httpMethods: 'OPTIONS', access: ['permitAll']}
+                    # CRÍTICO: OPTIONS SEM autenticação
+                    - {pattern: '/**',             httpMethods: 'OPTIONS', access: ['permitAll'], filters: 'none'}
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
                     - {pattern: '/index',          access: ['permitAll']}
@@ -36,7 +36,8 @@ grails:
 
             filterChain:
                 chainMap:
-                    # O interceptor lidará com o OPTIONS antes de chegar aqui se possível
+                    # CRÍTICO: OPTIONS bypass tudo
+                    - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'none'}
                     - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
                     - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
 
