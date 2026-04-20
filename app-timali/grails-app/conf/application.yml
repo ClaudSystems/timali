@@ -6,7 +6,7 @@ grails:
     gorm:
         reactor:
             events: false
-    
+
     cors:
         enabled: false
 
@@ -17,11 +17,10 @@ grails:
                 authorityJoinClassName: 'app.timali.UsuarioRole'
             authority:
                 className: 'app.timali.Role'
-            
+
             controllerAnnotations:
                 staticRules:
-                    # CRÍTICO: OPTIONS SEM autenticação
-                    - {pattern: '/**',             httpMethods: 'OPTIONS', access: ['permitAll'], filters: 'none'}
+                    - {pattern: '/**', httpMethods: 'OPTIONS', access: ['permitAll'], filters: 'none'}
                     - {pattern: '/',               access: ['permitAll']}
                     - {pattern: '/error',          access: ['permitAll']}
                     - {pattern: '/index',          access: ['permitAll']}
@@ -36,7 +35,6 @@ grails:
 
             filterChain:
                 chainMap:
-                    # CRÍTICO: OPTIONS bypass tudo
                     - {pattern: '/**', httpMethods: 'OPTIONS', filters: 'none'}
                     - {pattern: '/api/**',      filters: 'JOINED_FILTERS,-exceptionTranslationFilter,-authenticationProcessingFilter,-securityContextPersistenceFilter,-rememberMeAuthenticationFilter'}
                     - {pattern: '/**',          filters: 'JOINED_FILTERS,-restTokenValidationFilter,-restExceptionTranslationFilter'}
