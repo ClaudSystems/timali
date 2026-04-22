@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
 import EntidadeCRUD from './components/EntidadeCRUD';
+import TaxasPage from './pages/TaxasPage'; // ← NOVO: Import da página de Taxas
 
 // Componente para proteger rotas
 const PrivateRoute = ({ children }) => {
@@ -25,13 +26,23 @@ const Dashboard = () => {
 
       <nav>
         <h3>Menu Principal</h3>
-        <ul>
-          <li>
-            <Link to="/entidades" style={{ fontSize: '18px', fontWeight: 'bold' }}>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          <li style={{ marginBottom: '20px' }}>
+            <Link to="/entidades" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#2196F3' }}>
               📋 Gerir Entidades
             </Link>
             <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
               Gerir clientes, fornecedores, funcionários e assinantes
+            </p>
+          </li>
+
+          {/* NOVO: Item de menu para Taxas */}
+          <li style={{ marginBottom: '20px' }}>
+            <Link to="/taxas" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#2196F3' }}>
+              💰 Gerir Taxas
+            </Link>
+            <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
+              Configurar taxas percentuais, valores fixos e faixas escalonadas
             </p>
           </li>
         </ul>
@@ -71,6 +82,13 @@ function App() {
           <Route path="/entidades" element={
             <PrivateRoute>
               <EntidadeCRUD />
+            </PrivateRoute>
+          } />
+
+          {/* NOVO: Rota para o CRUD de Taxas */}
+          <Route path="/taxas" element={
+            <PrivateRoute>
+              <TaxasPage />
             </PrivateRoute>
           } />
 

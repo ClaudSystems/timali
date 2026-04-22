@@ -1,3 +1,4 @@
+// grails-app/controllers/app/timali/GenericUpdateInterceptor.groovy
 package app.timali
 
 import grails.artefact.Interceptor
@@ -21,9 +22,10 @@ class GenericUpdateInterceptor implements Interceptor {
             println "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓"
             println "▓▓▓ GENERIC INTERCEPTOR CAPTUROU! ▓▓▓"
             println "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓"
+            println "Method: ${request.method}"
             println "RequestURI: ${request.requestURI}"
-            println "ServletPath: ${request.servletPath}"
             println "Params ID: ${params.id}"
+            println "JSON Recebido: ${request.JSON}"
             println "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓"
             println ""
 
@@ -31,13 +33,11 @@ class GenericUpdateInterceptor implements Interceptor {
 
             if (id && request.JSON) {
                 try {
-                    // Usar request.requestURI em vez de request.uri
                     def uri = request.requestURI ?: request.servletPath
 
                     if (!uri) {
-                        println "⚠️ URI não disponível, usando 'entidade' como padrão"
-                        def updatedEntity = genericUpdateService.update("Entidade", id, request.JSON)
-                        render updatedEntity as JSON
+                        println "⚠️ URI não disponível"
+                        render status: 400, text: 'URI não disponível'
                         return false
                     }
 
@@ -45,26 +45,45 @@ class GenericUpdateInterceptor implements Interceptor {
 
                     if (pathParts.length >= 3) {
                         def resourceName = pathParts[2]
-                        def entityName = resourceName.capitalize()
-                        if (entityName.endsWith('s')) {
-                            entityName = entityName.substring(0, entityName.length() - 1)
-                        }
+                        // Remove 's' do final para singular
+                        def entityName = resourceName.endsWith('s') ?
+                                resourceName[0..-2].capitalize() :
+                                resourceName.capitalize()
 
-                        println ">>> Entidade detectada: ${entityName}"
+                        println ">>> Recurso: ${resourceName}"
+                        println ">>> Entidade: ${entityName}"
                         println ">>> Chamando GenericUpdateService.update(${entityName}, ${id}, ...)"
 
                         def updatedEntity = genericUpdateService.update(entityName, id, request.JSON)
 
-                        response.status = 200
-                        response.contentType = 'application/json'
-                        render updatedEntity as JSON
+                        if (updatedEntity) {
+                            response.status = 200
+                            response.contentType = 'application/json'
+                            render updatedEntity as JSON
+                        } else {
+                            render status: 404, text: "Entidade não encontrada: ${entityName} com id ${id}"
+                        }
 
                         return false
+                    } else {
+                        println "❌ URL mal formatada: ${uri}"
+                        render status: 400, text: 'URL mal formatada'
+                        return false
                     }
+                } catch (ClassNotFoundException e) {
+                    println "❌ Entidade não encontrada: ${e.message}"
+                    render status: 404, text: "Entidade não encontrada"
+                    return false
                 } catch (Exception e) {
-                    println "❌ ERRO: ${e.message}"
+                    println "❌ ERRO NO INTERCEPTOR: ${e.message}"
                     e.printStackTrace()
+                    render status: 500, text: "Erro interno: ${e.message}"
+                    return false
                 }
+            } else {
+                println "⚠️ ID ou JSON não fornecidos"
+                render status: 400, text: 'ID e JSON são obrigatórios'
+                return false
             }
         }
         return true
