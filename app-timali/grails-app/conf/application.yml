@@ -7,6 +7,30 @@ grails:
     reactor:
       events: false
 
+  # ========== CONFIGURAÇÃO MIME TYPES ==========
+  mime:
+    disable:
+      accept:
+        header:
+          userAgentDetection: false
+    types:
+      json:
+        - application/json
+        - text/json
+        - application/hal+json
+      xml:
+        - application/xml
+        - text/xml
+    default: json
+
+  # ========== CONFIGURAÇÃO REST ==========
+  rest:
+    hal:
+      enabled: false
+    json:
+      deep: true
+      pretty: true
+
   # ========== CONFIGURAÇÃO CORS ==========
   cors:
     enabled: true
@@ -30,8 +54,8 @@ grails:
           - 'X-Requested-With'
         allowCredentials: true
         maxAge: 3600
-  # =======================================
 
+  # ========== SPRING SECURITY ==========
   plugin:
     springsecurity:
       userLookup:
@@ -39,16 +63,10 @@ grails:
         authorityJoinClassName: 'app.timali.UsuarioRole'
       authority:
         className: 'app.timali.Role'
-
-      # Habilita CORS no Spring Security
       cors:
         enabled: true
-
-      # Desativa CSRF (Obrigatório para APIs REST stateless)
       csrf:
         active: false
-
-      # Regras de acesso estático
       controllerAnnotations:
         staticRules:
           - {pattern: '/',               access: ['permitAll']}
@@ -56,20 +74,15 @@ grails:
           - {pattern: '/api/login',      access: ['permitAll']}
           - {pattern: '/api/**',         access: ['isFullyAuthenticated()']}
           - {pattern: '/**',             access: ['permitAll']}
-
-      # Configuração REST e JWT
       rest:
         login:
           active: true
           endpointUrl: '/api/login'
-
         token:
           storage:
             jwt:
               secret: 'timali-super-secret-key-for-jwt-2026-xyz-must-be-long-enough-to-work'
               expiration: 3600
-
-        # Habilita CORS no REST
         cors:
           enabled: true
 
@@ -88,7 +101,7 @@ hibernate:
     queries: false
   dialect: org.hibernate.dialect.PostgreSQLDialect
   hbm2ddl:
-    auto: update  # Mudei para 'update' para não apagar dados a cada reinício
+    auto: update
   show_sql: true
   format_sql: true
 
@@ -97,19 +110,13 @@ dataSource:
   driverClassName: org.postgresql.Driver
   username: timali_user
   password: timali_password
-  dbCreate: update  # Mudei para 'update' para não apagar dados
+  dbCreate: update
 
 environments:
   development:
     dataSource:
-      dbCreate: update  # Mudei para 'update' - use 'create' apenas para recriar
+      dbCreate: update
       url: jdbc:postgresql://localhost:5433/timali_db
       driverClassName: org.postgresql.Driver
       username: timali_user
       password: timali_password
-      properties:
-        hibernate:
-          hbm2ddl:
-            auto: update  # Mudei para 'update'
-          show_sql: true
-          format_sql: true

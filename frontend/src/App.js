@@ -1,8 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
-import EntidadesList from './components/EntidadesList';
-import EntidadeForm from './components/EntidadeForm';
 import LoginPage from './components/LoginPage';
+import EntidadeCRUD from './components/EntidadeCRUD';
 
 // Componente para proteger rotas
 const PrivateRoute = ({ children }) => {
@@ -23,12 +22,35 @@ const Dashboard = () => {
     <div style={{ padding: '20px' }}>
       <h1>Dashboard Timali</h1>
       <p>Olá, <strong>{user}</strong>! Bem-vindo ao sistema.</p>
+
       <nav>
+        <h3>Menu Principal</h3>
         <ul>
-          <li><Link to="/entidades">Gerir Entidades</Link></li>
+          <li>
+            <Link to="/entidades" style={{ fontSize: '18px', fontWeight: 'bold' }}>
+              📋 Gerir Entidades
+            </Link>
+            <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
+              Gerir clientes, fornecedores, funcionários e assinantes
+            </p>
+          </li>
         </ul>
       </nav>
-      <button onClick={handleLogout} style={{ marginTop: '20px', color: 'red' }}>Sair (Logout)</button>
+
+      <button
+        onClick={handleLogout}
+        style={{
+          marginTop: '30px',
+          padding: '10px 20px',
+          backgroundColor: '#dc3545',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+      >
+        🚪 Sair (Logout)
+      </button>
     </div>
   );
 };
@@ -48,15 +70,11 @@ function App() {
 
           <Route path="/entidades" element={
             <PrivateRoute>
-              <EntidadesList />
+              <EntidadeCRUD />
             </PrivateRoute>
           } />
 
-          <Route path="/entidades/novo" element={
-            <PrivateRoute>
-              <EntidadeForm />
-            </PrivateRoute>
-          } />
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
     </Router>

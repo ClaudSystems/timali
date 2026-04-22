@@ -15,6 +15,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s # <--- Dá 1 minuto de tolerância no início
 
 volumes:
   postgres_data:
