@@ -1,8 +1,10 @@
+// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import LoginPage from './components/LoginPage';
 import EntidadeCRUD from './components/EntidadeCRUD';
-import TaxasPage from './pages/TaxasPage'; // ← NOVO: Import da página de Taxas
+import TaxasPage from './pages/TaxasPage';
+import FeriadosPage from './pages/FeriadosPage'; // ← NOVO: Import da página de Feriados
 
 // Componente para proteger rotas
 const PrivateRoute = ({ children }) => {
@@ -36,13 +38,22 @@ const Dashboard = () => {
             </p>
           </li>
 
-          {/* NOVO: Item de menu para Taxas */}
           <li style={{ marginBottom: '20px' }}>
             <Link to="/taxas" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#2196F3' }}>
               💰 Gerir Taxas
             </Link>
             <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
               Configurar taxas percentuais, valores fixos e faixas escalonadas
+            </p>
+          </li>
+
+          {/* NOVO: Item de menu para Feriados */}
+          <li style={{ marginBottom: '20px' }}>
+            <Link to="/feriados" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#2196F3' }}>
+              📅 Gerir Feriados
+            </Link>
+            <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
+              Configurar feriados nacionais, provinciais e municipais para cálculo de datas de pagamento
             </p>
           </li>
         </ul>
@@ -85,10 +96,16 @@ function App() {
             </PrivateRoute>
           } />
 
-          {/* NOVO: Rota para o CRUD de Taxas */}
           <Route path="/taxas" element={
             <PrivateRoute>
               <TaxasPage />
+            </PrivateRoute>
+          } />
+
+          {/* NOVO: Rota para o CRUD de Feriados */}
+          <Route path="/feriados" element={
+            <PrivateRoute>
+              <FeriadosPage />
             </PrivateRoute>
           } />
 

@@ -131,6 +131,9 @@ class GenericUpdateService {
     /**
      * Fallback para quando não consegue detectar via Hibernate
      */
+    // grails-app/services/app/timali/GenericUpdateService.groovy
+// Atualize o método getTableNameFallback()
+
     private String getTableNameFallback(String entityName) {
         // Mapeamento manual para casos especiais
         def tableMapping = [
@@ -138,7 +141,8 @@ class GenericUpdateService {
                 'Entidade': 'entidade',
                 'Produto': 'produtos',
                 'AuthUser': 'auth_user',
-                'AuthRole': 'auth_role'
+                'AuthRole': 'auth_role',
+                'Feriado': 'feriados'  // ← ADICIONE ESTA LINHA
         ]
 
         if (tableMapping.containsKey(entityName)) {
@@ -170,13 +174,15 @@ class GenericUpdateService {
     /**
      * Converte o valor baseado no tipo do campo
      */
+
+
     private def convertValueForColumn(def value, String fieldName) {
         if (value == null) return null
 
-        // Tratamento especial para Enum
-        if (fieldName == 'tipoCalculo') {
+        // Tratamento especial para Enums
+        if (fieldName in ['tipoCalculo', 'tipo', 'abrangencia']) {
             if (value instanceof Map && value.name) {
-                return value.name  // Extrai o nome do Enum
+                return value.name  // Extrai o nome do Enum (ex: "FIXO", "NACIONAL")
             }
             return value?.toString()
         }

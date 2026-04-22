@@ -1,0 +1,148 @@
+/* src/components/feriados/FeriadoList.css */
+.feriado-list {
+  padding: 20px;
+}
+
+.list-header {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 15px;
+  border: 1.5px solid #e3e8ee;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.year-filter {
+  padding: 10px 15px;
+  border: 1.5px solid #e3e8ee;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.feriados-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.feriado-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #eef2f6;
+  transition: all 0.2s;
+}
+
+.feriado-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.feriado-card.inactive {
+  opacity: 0.7;
+  background: #fafbfc;
+}
+
+.card-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid #eef2f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1f36;
+}
+
+.tipo-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.tipo-badge.fixo { background: #e3f2fd; color: #1565c0; }
+.tipo-badge.movel { background: #f3e5f5; color: #7b1fa2; }
+.tipo-badge.ponte { background: #fff3e0; color: #e65100; }
+.tipo-badge.excepcional { background: #ffebee; color: #c62828; }
+
+.card-body {
+  padding: 16px 18px;
+}
+
+.info-row {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.info-row .label {
+  width: 100px;
+  color: #697386;
+  font-weight: 500;
+}
+
+.info-row .value {
+  flex: 1;
+  color: #1a1f36;
+}
+
+.card-footer {
+  padding: 12px 18px;
+  border-top: 1px solid #eef2f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status.active { color: #2e7d32; }
+.status.inactive { color: #c62828; }
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.actions button:hover {
+  background: #f0f2f5;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px;
+  color: #697386;
+  font-size: 16px;
+}
+
+.loading {
+  text-align: center;
+  padding: 60px;
+  color: #697386;
+}
