@@ -11,6 +11,7 @@ import CreditoIndex from './pages/credito/CreditoIndex';
 import CreditoCreate from './pages/credito/CreditoCreate';
 import CreditoShow from './pages/credito/CreditoShow';
 import ParcelaList from './components/credito/ParcelaList';
+import MainLayout from './layouts/MainLayout';
 
 // Componente para proteger rotas
 const PrivateRoute = ({ children }) => {
@@ -110,37 +111,52 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
 
           {/* Dashboard */}
+
           <Route path="/" element={
+
             <PrivateRoute>
+            <MainLayout>
               <Dashboard />
+              </MainLayout>
             </PrivateRoute>
           } />
 
           {/* Entidades */}
           <Route path="/entidades" element={
+
             <PrivateRoute>
+            <MainLayout>
               <EntidadeCRUD />
+              </MainLayout>
             </PrivateRoute>
           } />
 
           {/* Taxas */}
           <Route path="/taxas" element={
             <PrivateRoute>
+            <MainLayout>
               <TaxasPage />
+              </MainLayout>
             </PrivateRoute>
           } />
 
           {/* Feriados */}
           <Route path="/feriados" element={
             <PrivateRoute>
-              <FeriadosPage />
+            <MainLayout>
+            <FeriadosPage />
+            </MainLayout>
+
+
             </PrivateRoute>
           } />
 
           {/* Definições de Crédito */}
           <Route path="/definicoes-credito" element={
             <PrivateRoute>
+             <MainLayout>
               <DefinicoesCreditoPage />
+              </MainLayout>
             </PrivateRoute>
           } />
 
@@ -149,28 +165,36 @@ function App() {
           {/* Lista de Créditos */}
           <Route path="/creditos" element={
             <PrivateRoute>
+            <MainLayout>
               <CreditoIndex />
+              </MainLayout>
             </PrivateRoute>
           } />
 
           {/* Novo Crédito */}
           <Route path="/creditos/novo" element={
             <PrivateRoute>
+             <MainLayout>
               <CreditoCreate />
+              </MainLayout>
             </PrivateRoute>
           } />
 
           {/* Detalhes do Crédito */}
           <Route path="/creditos/:id" element={
             <PrivateRoute>
+            <MainLayout>
               <CreditoShow />
+              </MainLayout>
             </PrivateRoute>
           } />
 
           {/* Parcelas do Crédito */}
           <Route path="/creditos/:id/parcelas" element={
             <PrivateRoute>
+            <MainLayout>
               <ParcelaList />
+              </MainLayout>
             </PrivateRoute>
           } />
 

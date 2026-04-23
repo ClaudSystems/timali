@@ -292,8 +292,8 @@ const ParcelaList = () => {
             totalJuros += valorJuros || 0;
             totalMultaMora += (valorMulta || 0) + (valorJurosDemora || 0);
             totalPago += valorPago || 0;
-            totalSaldo += saldoDevedor || 0;
           });
+            totalSaldo = totalParcela - totalPago;
 
           return (
             <Table.Summary fixed>

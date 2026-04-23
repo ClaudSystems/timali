@@ -329,7 +329,10 @@ class CreditoService {
     /**
      * Calcula o valor total do crédito com juros
      */
-    private BigDecimal calcularValorTotal(BigDecimal valor, def definicao) {
+/**
+ * Calcula o valor total do crédito com juros
+ */
+    private BigDecimal calcularValorTotal(BigDecimal valor, DefinicaoCredito definicao) {
         String formaCalculo = extrairNomeFormaCalculo(definicao.formaDeCalculo)
         BigDecimal taxa = definicao.percentualDeJuros ?: 0.0
         Integer parcelas = definicao.numeroDePrestacoes ?: 1
@@ -338,11 +341,16 @@ class CreditoService {
             // Juros calculados sobre o valor concedido
             BigDecimal juros = valor * (taxa / 100) * parcelas
             return valor + juros
+        } else if (formaCalculo.contains('PMT')) {
+            // Soma de todas as parcelas calculadas pela fórmula PMT
+            BigDecimal pmt = calcularPMT(valor, taxa, parcelas)
+            return pmt.multiply(new BigDecimal(parcelas)).setScale(2, RoundingMode.HALF_UP)
         } else {
-            // Outros métodos - sem juros por enquanto
+            // Outros métodos - fallback: sem juros
             return valor
         }
     }
+
 
     private BigDecimal calcularValorParcela(Credito credito) {
         if (!credito.numeroDePrestacoes || credito.numeroDePrestacoes == 0) {

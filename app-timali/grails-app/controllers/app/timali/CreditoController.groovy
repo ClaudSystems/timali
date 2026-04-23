@@ -2,6 +2,9 @@ package app.timali
 
 import grails.gorm.transactions.Transactional
 import grails.converters.JSON
+import java.math.RoundingMode
+
+
 
 class CreditoController {
 
@@ -68,9 +71,9 @@ class CreditoController {
     // CreditoController.groovy
     // CreditoController.groovy
     // CreditoController.groovy
-    def mostrar() {
-        println ">>> MÉTODO Mostrar() CUSTOMIZADO <<<"
 
+
+    def mostrar() {
         Long id = params.long('id')
         def credito = Credito.get(id)
 
@@ -79,11 +82,9 @@ class CreditoController {
             return
         }
 
-        // Função segura para formatar data
         def formatarData = { data ->
             if (!data) return null
             try {
-                // Converter Timestamp para Date se necessário
                 if (data instanceof java.sql.Timestamp) {
                     return new java.text.SimpleDateFormat('yyyy-MM-dd').format(new Date(data.time))
                 }
@@ -95,33 +96,58 @@ class CreditoController {
 
         def extrairEnum = { val -> val?.toString() ?: null }
 
+        def parcelas = credito.parcelas?.collect { parcela ->
+            [
+                    id: parcela.id,
+                    numero: parcela.numero,
+                    dataVencimento: formatarData(parcela.dataVencimento),
+                    valorParcela: parcela.valorParcela,
+                    valorAmortizacao: parcela.valorAmortizacao,
+                    valorJuros: parcela.valorJuros,
+                    valorMulta: parcela.valorMulta,
+                    valorJurosDemora: parcela.valorJurosDemora,
+                    valorPago: parcela.valorPago,
+                    saldoDevedor: parcela.saldoDevedor,
+                    status: extrairEnum(parcela.status),
+                    diasAtraso: parcela.diasAtraso,
+                    pago: parcela.pago
+            ]
+        } ?: []
+
+        // Totais agregados
+        BigDecimal totalParcelas = parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0
+        BigDecimal totalAmortizacao = parcelas.sum { it.valorAmortizacao ?: 0.0 } ?: 0.0
+        BigDecimal totalJuros = parcelas.sum { it.valorJuros ?: 0.0 } ?: 0.0
+        BigDecimal totalMulta = parcelas.sum { it.valorMulta ?: 0.0 } ?: 0.0
+        BigDecimal totalJurosDemora = parcelas.sum { it.valorJurosDemora ?: 0.0 } ?: 0.0
+        BigDecimal totalPago = parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0
+
+        def totais = [
+                totalPrevisto: totalParcelas.setScale(2, RoundingMode.HALF_UP),
+                totalAmortizacao: totalAmortizacao.setScale(2, RoundingMode.HALF_UP),
+                totalJuros: totalJuros.setScale(2, RoundingMode.HALF_UP),
+                totalMulta: totalMulta.setScale(2, RoundingMode.HALF_UP),
+                totalJurosDemora: totalJurosDemora.setScale(2, RoundingMode.HALF_UP),
+                totalPago: totalPago.setScale(2, RoundingMode.HALF_UP),
+                saldoPendente: (totalParcelas - totalPago).setScale(2, RoundingMode.HALF_UP)
+        ]
+
         def result = [
                 id: credito.id,
                 numero: credito.numero,
                 valorConcedido: credito.valorConcedido,
                 valorTotal: credito.valorTotal,
-                totalPago: credito.totalPago,
-                totalEmDivida: credito.totalEmDivida,
-                totalJurosPago: credito.totalJurosPago,
-                totalMultaPago: credito.totalMultaPago,
-                totalJurosDemoraPago: credito.totalJurosDemoraPago,
-                totalPagoNoPrazo: credito.totalPagoNoPrazo,
                 percentualDeJuros: credito.percentualDeJuros,
                 percentualJurosDeDemora: credito.percentualJurosDeDemora,
                 numeroDePrestacoes: credito.numeroDePrestacoes,
                 periodicidade: extrairEnum(credito.periodicidade),
                 formaDeCalculo: extrairEnum(credito.formaDeCalculo),
                 status: extrairEnum(credito.status),
-                periodicidadeMora: extrairEnum(credito.periodicidadeMora),
-                // USAR formatarData SEGURO
                 dataEmissao: formatarData(credito.dataEmissao),
                 dataValidade: formatarData(credito.dataValidade),
-                dateCreated: credito.dateCreated?.toString(),
-                lastUpdated: credito.lastUpdated?.toString(),
                 quitado: credito.quitado,
                 emMora: credito.emMora,
                 ativo: credito.ativo,
-                ignorarPagamentosNoPrazo: credito.ignorarPagamentosNoPrazo,
                 descricao: credito.descricao,
                 criadoPor: credito.criadoPor,
                 atualizadoPor: credito.atualizadoPor,
@@ -138,30 +164,14 @@ class CreditoController {
                         id: credito.usuario.id,
                         username: credito.usuario.username
                 ] : [id: null, username: 'Sistema'],
-                parcelas: credito.parcelas?.collect { parcela ->
-                    [
-                            id: parcela.id,
-                            numero: parcela.numero,
-                            dataVencimento: formatarData(parcela.dataVencimento),
-                            valorParcela: parcela.valorParcela,
-                            valorAmortizacao: parcela.valorAmortizacao,
-                            valorJuros: parcela.valorJuros,
-                            valorPago: parcela.valorPago,
-                            saldoDevedor: parcela.saldoDevedor,
-                            status: extrairEnum(parcela.status),
-                            diasAtraso: parcela.diasAtraso,
-                            pago: parcela.pago
-                    ]
-                } ?: []
+                parcelas: parcelas,
+                totais: totais
         ]
-        println ">>> RESULTADO FINAL: ${result}"
-        println ">>> periodicidade: ${result.periodicidade}"
-        println ">>> formaDeCalculo: ${result.formaDeCalculo}"
-        println ">>> status: ${result.status}"
-
 
         render result as JSON
-    }                         // ========== ENUM DA PARCELA CONVERTIDO PARA STRING ==========
+    }
+
+    // ========== ENUM DA PARCELA CONVERTIDO PARA STRING ==========
 
 
     @Transactional
@@ -533,12 +543,49 @@ class CreditoController {
     }
 
     // GET /api/creditos/{id}/extrato
+
+
+
+
+
     def extrato(Long id) {
         def credito = Credito.get(id)
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
         }
+
+        def parcelas = credito.parcelas?.sort { it.numero }?.collect { [
+                numero: it.numero,
+                dataVencimento: it.dataVencimento?.format('yyyy-MM-dd'),
+                valorParcela: it.valorParcela,
+                valorAmortizacao: it.valorAmortizacao,
+                valorJuros: it.valorJuros,
+                valorMulta: it.valorMulta,
+                valorJurosDemora: it.valorJurosDemora,
+                valorPago: it.valorPago,
+                saldoDevedor: it.saldoDevedor,
+                pago: it.pago,
+                status: it.status?.toString()
+        ] } ?: []
+
+        // Totais agregados
+        BigDecimal totalParcelas = parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0
+        BigDecimal totalAmortizacao = parcelas.sum { it.valorAmortizacao ?: 0.0 } ?: 0.0
+        BigDecimal totalJuros = parcelas.sum { it.valorJuros ?: 0.0 } ?: 0.0
+        BigDecimal totalMulta = parcelas.sum { it.valorMulta ?: 0.0 } ?: 0.0
+        BigDecimal totalJurosDemora = parcelas.sum { it.valorJurosDemora ?: 0.0 } ?: 0.0
+        BigDecimal totalPago = parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0
+
+        def totais = [
+                totalPrevisto: totalParcelas.setScale(2, RoundingMode.HALF_UP),
+                totalAmortizacao: totalAmortizacao.setScale(2, RoundingMode.HALF_UP),
+                totalJuros: totalJuros.setScale(2, RoundingMode.HALF_UP),
+                totalMulta: totalMulta.setScale(2, RoundingMode.HALF_UP),
+                totalJurosDemora: totalJurosDemora.setScale(2, RoundingMode.HALF_UP),
+                totalPago: totalPago.setScale(2, RoundingMode.HALF_UP),
+                saldoPendente: (totalParcelas - totalPago).setScale(2, RoundingMode.HALF_UP)
+        ]
 
         render([
                 credito: [
@@ -547,23 +594,15 @@ class CreditoController {
                         entidade: credito.entidade?.nome,
                         valorConcedido: credito.valorConcedido,
                         valorTotal: credito.valorTotal,
-                        totalPago: credito.totalPago,
-                        totalEmDivida: credito.totalEmDivida,
-                        totalJurosPago: credito.totalJurosPago,
-                        totalMultaPago: credito.totalMultaPago,
                         status: credito.status?.toString(),
                         dataEmissao: credito.dataEmissao?.format('yyyy-MM-dd')
                 ],
-                parcelas: credito.parcelas?.sort { it.numero }?.collect { [
-                        numero: it.numero,
-                        dataVencimento: it.dataVencimento?.format('yyyy-MM-dd'),
-                        valorParcela: it.valorParcela,
-                        valorPago: it.valorPago,
-                        pago: it.pago,
-                        status: it.status?.toString()
-                ] }
+                parcelas: parcelas,
+                totais: totais
         ] as JSON)
     }
+
+
 
     // POST /api/creditos/{creditoId}/parcelas/{parcelaId}/pagar
     @Transactional
