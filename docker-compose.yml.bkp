@@ -15,17 +15,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 60s
-
-  # Interface visual (Adminer) na porta 8888
-  adminer:
-    image: adminer
-    container_name: timali_adminer
-    restart: always
-    ports:
-      - "8888:8080" # <--- Alterado de 8080 para 8888
-    depends_on:
-      - postgres
+      start_period: 60s # <--- Dá 1 minuto de tolerância no início
 
 volumes:
   postgres_data:

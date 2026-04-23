@@ -21,30 +21,42 @@ class UrlMappings {
         "/api/definicoes-credito"(resources: 'definicaoCredito')
 
         // ============================================================
-        // API - CRÉDITOS - ROTA MANUAL PRIMEIRO!
+        // API - CRÉDITOS
         // ============================================================
+
+        // Rotas específicas PRIMEIRO
+        "/api/creditos/buscar-clientes"(controller: "credito", action: "buscarClientes")
         "/api/creditos/criar"(controller: "credito", action: "criarCreditoAction")
 
-        // ============================================================
-        // API - CRÉDITOS (RESOURCES)
-        // ============================================================
-        "/api/creditos"(resources: 'credito') {
-            collection {
-                '/buscar-clientes'(controller: 'credito', action: 'buscarClientes')
-            }
-            member {
-                '/invalidar'(controller: 'credito', action: 'invalidar')
-                '/arquivar'(controller: 'credito', action: 'arquivar')
-                '/extrato'(controller: 'credito', action: 'extrato')
-                '/parcelas'(controller: 'credito', action: 'parcelas')
-            }
+        // Rotas com path adicional
+        "/api/creditos/$id/invalidar"(controller: "credito", action: "invalidar") {
+            constraints { id matches: /\d+/ }
         }
-
-        "/api/creditos/$creditoId/parcelas/$parcelaId/pagar"(controller: 'credito', action: 'registrarPagamento') {
+        "/api/creditos/$id/arquivar"(controller: "credito", action: "arquivar") {
+            constraints { id matches: /\d+/ }
+        }
+        "/api/creditos/$id/extrato"(controller: "credito", action: "extrato") {
+            constraints { id matches: /\d+/ }
+        }
+        "/api/creditos/$creditoId/parcelas"(controller: "credito", action: "parcelas") {
+            constraints { creditoId matches: /\d+/ }
+        }
+        "/api/creditos/$creditoId/parcelas/$parcelaId/pagar"(controller: "credito", action: "registrarPagamento") {
             constraints {
                 creditoId matches: /\d+/
                 parcelaId matches: /\d+/
             }
+        }
+
+        // Rota com ID (GET usa "mostrar")
+        "/api/creditos/$id"(controller: "credito") {
+            action = [GET: "mostrar", PUT: "update", PATCH: "update", DELETE: "delete"]
+            constraints { id matches: /\d+/ }
+        }
+
+        // Rota sem ID (GET usa "index", POST usa "save")
+        "/api/creditos"(controller: "credito") {
+            action = [GET: "index"]
         }
 
         // ============================================================

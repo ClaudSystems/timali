@@ -1,3 +1,4 @@
+// grails-app/domain/app/timali/Parcela.groovy
 package app.timali
 
 import grails.compiler.GrailsCompileStatic
@@ -10,7 +11,7 @@ class Parcela implements Serializable {
     private static final long serialVersionUID = 1
 
     Credito credito
-    BigDecimal valorRemissao =0.0 // valor do perdao da parcela
+    BigDecimal valorRemissao = 0.0 // valor do perdão da parcela
     Integer numero
     String descricao
 
@@ -31,7 +32,7 @@ class Parcela implements Serializable {
     Date dataVencimento
     Date dataPagamento
     Integer diasAtraso = 0
-    Integer cobrancasMoraAplicadas = 0  // Quantas vezes já cobrou mora
+    Integer cobrancasMoraAplicadas = 0
 
     Boolean pago = false
     Boolean pagoNoPrazo = false
@@ -56,7 +57,7 @@ class Parcela implements Serializable {
 
         numero nullable: false, min: 1
         descricao nullable: true, maxSize: 200
-        valorRemissao nullble:  false, min: 0.0, scale: 2
+        valorRemissao nullable: false, min: 0.0, scale: 2  // ← CORRIGIDO: nullble → nullable
         valorParcela nullable: false, min: 0.0, scale: 2
         valorAmortizacao nullable: false, min: 0.0, scale: 2
         valorJuros nullable: false, min: 0.0, scale: 2

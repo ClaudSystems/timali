@@ -6,7 +6,7 @@ import grails.rest.Resource
 
 @GrailsCompileStatic
 @Entity
-@Resource(uri = '/api/creditos', formats = ['json'], readOnly = false)
+// @Resource(uri = '/api/creditos', formats = ['json'], readOnly = false)
 class Credito implements Serializable {
 
     private static final long serialVersionUID = 1

@@ -14,18 +14,63 @@ class CreditoController {
     // ====================================================================
 
     // GET /api/creditos
+    // CreditoController.groovy
+    // CreditoController.groovy
     def index() {
         def max = params.max ? params.int('max') : 20
         def offset = params.offset ? params.int('offset') : 0
 
         def creditos = Credito.list(max: max, offset: offset, sort: 'dataEmissao', order: 'desc')
-        respond creditos
+
+        def sdf = new java.text.SimpleDateFormat('yyyy-MM-dd')
+        def extrairEnum = { val -> val?.toString() ?: null }
+
+        def formatarData = { data ->
+            if (!data) return null
+            try {
+                if (data instanceof java.sql.Timestamp) {
+                    return sdf.format(new Date(data.time))
+                }
+                return sdf.format(data)
+            } catch (Exception e) {
+                return data.toString()
+            }
+        }
+
+        def result = creditos.collect { credito ->
+            [
+                    id: credito.id,
+                    numero: credito.numero,
+                    valorConcedido: credito.valorConcedido,
+                    valorTotal: credito.valorTotal,
+                    totalPago: credito.totalPago,
+                    totalEmDivida: credito.totalEmDivida,
+                    numeroDePrestacoes: credito.numeroDePrestacoes,
+                    periodicidade: extrairEnum(credito.periodicidade),
+                    formaDeCalculo: extrairEnum(credito.formaDeCalculo),
+                    status: extrairEnum(credito.status),
+                    dataEmissao: formatarData(credito.dataEmissao),
+                    dataValidade: formatarData(credito.dataValidade),
+                    quitado: credito.quitado,
+                    emMora: credito.emMora,
+                    ativo: credito.ativo,
+                    entidade: credito.entidade ? [
+                            id: credito.entidade.id,
+                            nome: credito.entidade.nome
+                    ] : null
+            ]
+        }
+
+        render result as JSON
     }
 
     // GET /api/creditos/{id}
     // CreditoController.groovy
     // CreditoController.groovy
-    def show() {
+    // CreditoController.groovy
+    def mostrar() {
+        println ">>> MÉTODO Mostrar() CUSTOMIZADO <<<"
+
         Long id = params.long('id')
         def credito = Credito.get(id)
 
@@ -34,89 +79,97 @@ class CreditoController {
             return
         }
 
-        try {
-            // Função auxiliar para formatar data com segurança
-            def formatarData = { data ->
-                if (!data) return null
-                try {
-                    def date = data instanceof java.sql.Timestamp ? new Date(data.time) : data
-                    return date.format('yyyy-MM-dd')
-                } catch (Exception e) {
-                    return data.toString()
+        // Função segura para formatar data
+        def formatarData = { data ->
+            if (!data) return null
+            try {
+                // Converter Timestamp para Date se necessário
+                if (data instanceof java.sql.Timestamp) {
+                    return new java.text.SimpleDateFormat('yyyy-MM-dd').format(new Date(data.time))
                 }
+                return new java.text.SimpleDateFormat('yyyy-MM-dd').format(data)
+            } catch (Exception e) {
+                return data.toString()
             }
-
-            // Função auxiliar para extrair valor de enum com segurança
-            def extrairEnum = { val -> val?.toString() ?: null }
-
-            def result = [
-                    id: credito.id,
-                    numero: credito.numero,
-                    valorConcedido: credito.valorConcedido,
-                    valorTotal: credito.valorTotal,
-                    totalPago: credito.totalPago,
-                    totalEmDivida: credito.totalEmDivida,
-                    totalJurosPago: credito.totalJurosPago,
-                    totalMultaPago: credito.totalMultaPago,
-                    totalJurosDemoraPago: credito.totalJurosDemoraPago,
-                    totalPagoNoPrazo: credito.totalPagoNoPrazo,
-                    percentualDeJuros: credito.percentualDeJuros,
-                    percentualJurosDeDemora: credito.percentualJurosDeDemora,
-                    numeroDePrestacoes: credito.numeroDePrestacoes,
-                    // ENUMS
-                    periodicidade: extrairEnum(credito.periodicidade),
-                    formaDeCalculo: extrairEnum(credito.formaDeCalculo),
-                    status: extrairEnum(credito.status),
-                    periodicidadeMora: extrairEnum(credito.periodicidadeMora),
-                    // DATAS
-                    dataEmissao: formatarData(credito.dataEmissao),
-                    dataValidade: formatarData(credito.dataValidade),
-                    dateCreated: credito.dateCreated?.toString(),
-                    lastUpdated: credito.lastUpdated?.toString(),
-                    // BOOLEANOS
-                    quitado: credito.quitado,
-                    emMora: credito.emMora,
-                    ativo: credito.ativo,
-                    ignorarPagamentosNoPrazo: credito.ignorarPagamentosNoPrazo,
-                    // STRINGS
-                    descricao: credito.descricao,
-                    criadoPor: credito.criadoPor,
-                    atualizadoPor: credito.atualizadoPor,
-                    // RELACIONAMENTOS
-                    entidade: credito.entidade ? [
-                            id: credito.entidade.id,
-                            nome: credito.entidade.nome,
-                            codigo: credito.entidade.codigo
-                    ] : [id: null, nome: 'N/A', codigo: ''],
-                    definicaoCredito: credito.definicaoCredito ? [
-                            id: credito.definicaoCredito.id,
-                            nome: credito.definicaoCredito.nome
-                    ] : [id: null, nome: 'Personalizada'],
-                    usuario: credito.usuario ? [
-                            id: credito.usuario.id,
-                            username: credito.usuario.username
-                    ] : [id: null, username: 'Sistema']
-            ]
-
-            render result as JSON
-        } catch (Exception e) {
-            println "ERRO no show(): ${e.message}"
-            e.printStackTrace()
-            render status: 500, text: [message: "Erro: ${e.message}"] as JSON
         }
-    }
 
-   /* // POST /api/creditos (método REST padrão)
+        def extrairEnum = { val -> val?.toString() ?: null }
+
+        def result = [
+                id: credito.id,
+                numero: credito.numero,
+                valorConcedido: credito.valorConcedido,
+                valorTotal: credito.valorTotal,
+                totalPago: credito.totalPago,
+                totalEmDivida: credito.totalEmDivida,
+                totalJurosPago: credito.totalJurosPago,
+                totalMultaPago: credito.totalMultaPago,
+                totalJurosDemoraPago: credito.totalJurosDemoraPago,
+                totalPagoNoPrazo: credito.totalPagoNoPrazo,
+                percentualDeJuros: credito.percentualDeJuros,
+                percentualJurosDeDemora: credito.percentualJurosDeDemora,
+                numeroDePrestacoes: credito.numeroDePrestacoes,
+                periodicidade: extrairEnum(credito.periodicidade),
+                formaDeCalculo: extrairEnum(credito.formaDeCalculo),
+                status: extrairEnum(credito.status),
+                periodicidadeMora: extrairEnum(credito.periodicidadeMora),
+                // USAR formatarData SEGURO
+                dataEmissao: formatarData(credito.dataEmissao),
+                dataValidade: formatarData(credito.dataValidade),
+                dateCreated: credito.dateCreated?.toString(),
+                lastUpdated: credito.lastUpdated?.toString(),
+                quitado: credito.quitado,
+                emMora: credito.emMora,
+                ativo: credito.ativo,
+                ignorarPagamentosNoPrazo: credito.ignorarPagamentosNoPrazo,
+                descricao: credito.descricao,
+                criadoPor: credito.criadoPor,
+                atualizadoPor: credito.atualizadoPor,
+                entidade: credito.entidade ? [
+                        id: credito.entidade.id,
+                        nome: credito.entidade.nome,
+                        codigo: credito.entidade.codigo
+                ] : [id: null, nome: 'N/A', codigo: ''],
+                definicaoCredito: credito.definicaoCredito ? [
+                        id: credito.definicaoCredito.id,
+                        nome: credito.definicaoCredito.nome
+                ] : [id: null, nome: 'Personalizada'],
+                usuario: credito.usuario ? [
+                        id: credito.usuario.id,
+                        username: credito.usuario.username
+                ] : [id: null, username: 'Sistema'],
+                parcelas: credito.parcelas?.collect { parcela ->
+                    [
+                            id: parcela.id,
+                            numero: parcela.numero,
+                            dataVencimento: formatarData(parcela.dataVencimento),
+                            valorParcela: parcela.valorParcela,
+                            valorAmortizacao: parcela.valorAmortizacao,
+                            valorJuros: parcela.valorJuros,
+                            valorPago: parcela.valorPago,
+                            saldoDevedor: parcela.saldoDevedor,
+                            status: extrairEnum(parcela.status),
+                            diasAtraso: parcela.diasAtraso,
+                            pago: parcela.pago
+                    ]
+                } ?: []
+        ]
+        println ">>> RESULTADO FINAL: ${result}"
+        println ">>> periodicidade: ${result.periodicidade}"
+        println ">>> formaDeCalculo: ${result.formaDeCalculo}"
+        println ">>> status: ${result.status}"
+
+
+        render result as JSON
+    }                         // ========== ENUM DA PARCELA CONVERTIDO PARA STRING ==========
+
+
     @Transactional
     def save() {
-        def data = request.JSON
-        criarCredito(data)
-    }*/
-    // CreditoController.groovy
+        // Este método não faz nada - o interceptor cuida da criação
+        render status: 405, text: [message: "Use o interceptor"] as JSON
+    }
 
-// REMOVA ou COMENTE o método save()
-
-// Crie este método:
     @Transactional
     def criarCreditoAction() {
         println "=" * 50
@@ -371,34 +424,73 @@ class CreditoController {
         render(resultado as JSON)
     }
 
-    // GET /api/creditos/{creditoId}/parcelas
+// CreditoController.groovy
     def parcelas(Long creditoId) {
+        println "=" * 50
+        println "MÉTODO parcelas() - creditoId: ${creditoId}"
+        println "=" * 50
+
         def credito = Credito.get(creditoId)
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
         }
 
-        def parcelas = credito.parcelas?.sort { it.numero }?.collect { parcela ->
-            [
-                    id: parcela.id,
-                    numero: parcela.numero,
-                    dataVencimento: parcela.dataVencimento?.format('yyyy-MM-dd'),
-                    valorParcela: parcela.valorParcela,
-                    valorPago: parcela.valorPago,
-                    saldoDevedor: parcela.saldoDevedor,
-                    pago: parcela.pago,
-                    emMora: parcela.emMora,
-                    status: parcela.status?.toString(),
-                    diasAtraso: parcela.diasAtraso,
-                    valorMulta: parcela.valorMulta,
-                    valorJurosDemora: parcela.valorJurosDemora,
-                    dataPagamento: parcela.dataPagamento?.format('yyyy-MM-dd'),
-                    formaPagamento: parcela.formaPagamento
-            ]
-        }
+        try {
+            // Função para extrair valor de enum
+            def extrairEnum = { val -> val?.toString() ?: null }
 
-        render(parcelas as JSON)
+            // Função para formatar data
+            def formatarData = { data ->
+                if (!data) return null
+                try {
+                    def date = data instanceof java.sql.Timestamp ? new Date(data.time) : data
+                    return date.format('yyyy-MM-dd')
+                } catch (Exception e) {
+                    return data.toString()
+                }
+            }
+
+            def parcelas = credito.parcelas?.sort { it.numero }?.collect { parcela ->
+                [
+                        id: parcela.id,
+                        numero: parcela.numero,
+                        descricao: parcela.descricao,
+                        dataVencimento: formatarData(parcela.dataVencimento),
+                        dataPagamento: formatarData(parcela.dataPagamento),
+                        valorParcela: parcela.valorParcela,
+                        valorAmortizacao: parcela.valorAmortizacao,
+                        valorJuros: parcela.valorJuros,
+                        valorPago: parcela.valorPago,
+                        valorPagoAmortizacao: parcela.valorPagoAmortizacao,
+                        valorPagoJuros: parcela.valorPagoJuros,
+                        valorMulta: parcela.valorMulta,
+                        valorJurosDemora: parcela.valorJurosDemora,
+                        valorPagoMulta: parcela.valorPagoMulta,
+                        valorPagoJurosDemora: parcela.valorPagoJurosDemora,
+                        saldoDevedor: parcela.saldoDevedor,
+                        diasAtraso: parcela.diasAtraso,
+                        pago: parcela.pago,
+                        pagoNoPrazo: parcela.pagoNoPrazo,
+                        emMora: parcela.emMora,
+                        // ENUM convertido para string
+                        status: extrairEnum(parcela.status),
+                        formaPagamento: parcela.formaPagamento,
+                        comprovativo: parcela.comprovativo,
+                        observacao: parcela.observacao,
+                        cobrancasMoraAplicadas: parcela.cobrancasMoraAplicadas
+                ]
+            } ?: []
+
+            println "Parcelas encontradas: ${parcelas.size()}"
+
+            render parcelas as JSON
+
+        } catch (Exception e) {
+            println "ERRO no parcelas(): ${e.message}"
+            e.printStackTrace()
+            render status: 500, text: [message: "Erro: ${e.message}"] as JSON
+        }
     }
 
     // PUT /api/creditos/{id}/invalidar

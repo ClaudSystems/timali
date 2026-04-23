@@ -60,62 +60,60 @@ const CreditoList = () => {
     order: 'desc'
   });
 
-  const carregarCreditos = async () => {
-    setLoading(true);
-    try {
-      const response = await creditoService.listar(filtros);
-      console.log('Resposta da API:', response);
+// No CreditoList.jsx, função carregarCreditos
+const carregarCreditos = async () => {
+  setLoading(true);
+  try {
+    const response = await creditoService.listar(filtros);
+    console.log('Resposta da API:', response);
 
-      let dataArray = [];
-      if (Array.isArray(response)) {
-        dataArray = response;
-      } else if (response && typeof response === 'object') {
-        if (response._embedded?.creditos) {
-          dataArray = response._embedded.creditos;
-        } else if (response.data && Array.isArray(response.data)) {
-          dataArray = response.data;
-        } else if (response.content) {
-          dataArray = response.content;
-        } else if (response.list) {
-          dataArray = response.list;
-        } else {
-          dataArray = Object.values(response).filter(item => typeof item === 'object' && item.id);
-        }
+    let dataArray = [];
+    if (Array.isArray(response)) {
+      dataArray = response;
+    } else if (response && typeof response === 'object') {
+      if (response._embedded?.creditos) {
+        dataArray = response._embedded.creditos;
+      } else if (response.data) {
+        dataArray = response.data;
+      } else if (response.content) {
+        dataArray = response.content;
+      } else {
+        dataArray = Object.values(response).filter(item => typeof item === 'object' && item.id);
       }
-
-      // Processar cada crédito para extrair enums e garantir dados válidos
-      const creditosProcessados = dataArray.map(credito => ({
-        ...credito,
-        // Extrair enums
-        periodicidade: extrairValorEnum(credito.periodicidade),
-        formaDeCalculo: extrairValorEnum(credito.formaDeCalculo),
-        status: extrairValorEnum(credito.status),
-        // Garantir que entidade existe
-        entidade: credito.entidade || { nome: 'N/A', codigo: '' },
-        // Garantir valores numéricos
-        valorConcedido: credito.valorConcedido || 0,
-        valorTotal: credito.valorTotal || 0,
-        totalPago: credito.totalPago || 0,
-        totalEmDivida: credito.totalEmDivida || 0,
-        numeroDePrestacoes: credito.numeroDePrestacoes || 0,
-        // Formatar data
-        dataEmissaoFormatada: credito.dataEmissao
-          ? moment(credito.dataEmissao).format('DD/MM/YYYY')
-          : '-'
-      }));
-
-      console.log('Créditos processados:', creditosProcessados.length);
-      setCreditos(creditosProcessados);
-      setTotal(response.total || response.totalElements || creditosProcessados.length);
-    } catch (error) {
-      console.error('Erro ao carregar créditos:', error);
-      message.error('Erro ao carregar créditos');
-      setCreditos([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // ===== CORREÇÃO: Processar enums para strings =====
+    const creditosProcessados = dataArray.map(credito => {
+      // Função segura para extrair valor
+      const safeEnum = (val, fallback = '-') => {
+        if (!val) return fallback;
+        if (typeof val === 'string') return val;
+        if (val.name) return val.name;
+        if (val.descricao) return val.descricao;
+        if (val.toString) return val.toString();
+        return fallback;
+      };
+
+      return {
+        ...credito,
+        periodicidadeStr: safeEnum(credito.periodicidade, 'MENSAL'),
+        formaDeCalculoStr: safeEnum(credito.formaDeCalculo, 'JUROS_SIMPLES'),
+        statusStr: safeEnum(credito.status, 'ATIVO'),
+        entidade: credito.entidade?.nome ? credito.entidade : { nome: `ID: ${credito.entidade?.id || 'N/A'}` }
+      };
+    });
+
+    console.log('Créditos processados:', creditosProcessados.length);
+    setCreditos(creditosProcessados);
+    setTotal(response.total || response.totalElements || creditosProcessados.length);
+  } catch (error) {
+    console.error('Erro ao carregar créditos:', error);
+    setCreditos([]);
+    setTotal(0);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     carregarCreditos();

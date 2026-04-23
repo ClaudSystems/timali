@@ -31,10 +31,11 @@ const ParcelaList = () => {
   // Carregar dados
   useEffect(() => {
     if (id) {
-      carregarDados();
+      carregarDados();  // ← CHAMA A FUNÇÃO AQUI
     }
   }, [id]);
 
+  // ========== FUNÇÃO carregarDados - COLOQUE AQUI ==========
   const carregarDados = async () => {
     setLoading(true);
     setError(null);
@@ -45,16 +46,20 @@ const ParcelaList = () => {
         creditoService.listarParcelas(id)
       ]);
 
+      console.log('Crédito carregado:', creditoData);
+      console.log('Parcelas carregadas:', parcelasData);
+
       setCredito(creditoData);
       setParcelas(Array.isArray(parcelasData) ? parcelasData : []);
     } catch (err) {
-      setError(err.message);
       console.error('Erro ao carregar dados:', err);
+      setError(err.message);
       message.error('Erro ao carregar parcelas');
     } finally {
       setLoading(false);
     }
   };
+  // =====================================================
 
   const formatarMoeda = (valor) => {
     if (!valor && valor !== 0) return 'MT 0,00';
@@ -155,6 +160,24 @@ const ParcelaList = () => {
         <Tag color="error">{dias} dias</Tag>
       ) : '-',
       width: 100,
+    },
+    {
+      title: 'Ações',
+      key: 'acoes',
+      fixed: 'right',
+      width: 100,
+      render: (_, record) => (
+        !record.pago && (
+          <Button
+            type="primary"
+            size="small"
+            icon={<DollarOutlined />}
+            // onClick={() => handlePagamento(record)}  // Descomentar quando implementar pagamento
+          >
+            Pagar
+          </Button>
+        )
+      ),
     },
   ];
 
