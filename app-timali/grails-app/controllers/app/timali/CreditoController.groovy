@@ -166,9 +166,10 @@ class CreditoController {
 
     @Transactional
     def save() {
-        // Este método não faz nada - o interceptor cuida da criação
-        render status: 405, text: [message: "Use o interceptor"] as JSON
+        def data = request.JSON
+        criarCredito(data)
     }
+
 
     @Transactional
     def criarCreditoAction() {

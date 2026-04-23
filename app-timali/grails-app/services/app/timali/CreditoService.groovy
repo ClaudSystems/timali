@@ -10,6 +10,27 @@ class CreditoService {
     /**
      * Gera as parcelas do crédito baseado na definição
      */
+    /**
+     * Fórmula PMT (Price) corrigida
+     */
+    private BigDecimal calcularPMT(BigDecimal principal, BigDecimal taxaPercentual, Integer n) {
+        if (!taxaPercentual || taxaPercentual <= 0) {
+            return principal / n
+        }
+        double i = taxaPercentual.doubleValue() / 100.0
+        double denominador = 1 - Math.pow(1 + i, -n)
+
+        if (denominador <= 0) {
+            // fallback: dividir valor concedido igualmente
+            return principal.doubleValue() / n
+        }
+
+        double pmt = (principal.doubleValue() * i) / denominador
+        if (pmt < 0) pmt = Math.abs(pmt) // nunca negativo
+
+        return new BigDecimal(pmt)
+    }
+
     @Transactional
     void gerarParcelas(Credito credito) {
         println "GERANDO PARCELAS para crédito: ${credito.id}"
@@ -22,27 +43,39 @@ class CreditoService {
 
         credito.percentualDeJuros = definicao.percentualDeJuros ?: 0
         credito.percentualJurosDeDemora = definicao.percentualJurosDeDemora ?: 0
-        if (!credito.numeroDePrestacoes) credito.numeroDePrestacoes = definicao.numeroDePrestacoes ?: 1
+        credito.numeroDePrestacoes = credito.numeroDePrestacoes ?: definicao.numeroDePrestacoes ?: 1
         credito.maximoCobrancasMora = definicao.maximoCobrancasMora ?: 0
-
-        if (!credito.dataEmissao) credito.dataEmissao = new Date()
-        if (!credito.periodicidade) credito.periodicidade = definicao.periodicidade ?: Periodicidade.MENSAL
+        credito.dataEmissao = credito.dataEmissao ?: new Date()
+        credito.periodicidade = credito.periodicidade ?: definicao.periodicidade ?: Periodicidade.MENSAL
 
         credito.valorTotal = calcularValorTotal(credito.valorConcedido, definicao)
         credito.totalPrevisto = credito.valorTotal
-        credito.save(flush: true)
+        credito.save(flush: true, failOnError: true)
+
+        Credito creditoPersistido = Credito.get(credito.id)
 
         Calendar cal = Calendar.getInstance()
-        cal.setTime(credito.dataEmissao)
+        cal.setTime(creditoPersistido.dataEmissao)
 
-        String periodo = credito.periodicidade.toString().toUpperCase()
+        String periodo = creditoPersistido.periodicidade.toString().toUpperCase()
         def sdf = new java.text.SimpleDateFormat('dd/MM/yyyy')
 
-        BigDecimal valorParcela = (credito.valorTotal / credito.numeroDePrestacoes).setScale(2, RoundingMode.HALF_UP)
-        BigDecimal somaParcelas = BigDecimal.ZERO
-        BigDecimal saldoDevedor = credito.valorTotal
+        BigDecimal valorParcela
+        if (creditoPersistido.formaDeCalculo?.toString()?.contains("PMT")) {
+            valorParcela = calcularPMT(
+                    creditoPersistido.valorConcedido,
+                    creditoPersistido.percentualDeJuros,
+                    creditoPersistido.numeroDePrestacoes
+            ).setScale(2, RoundingMode.HALF_UP)
+        } else {
+            valorParcela = (creditoPersistido.valorTotal / creditoPersistido.numeroDePrestacoes).setScale(2, RoundingMode.HALF_UP)
+        }
 
-        for (int i = 1; i <= credito.numeroDePrestacoes; i++) {
+        BigDecimal somaParcelas = BigDecimal.ZERO
+        BigDecimal saldoDevedor = creditoPersistido.valorConcedido
+
+        for (int i = 1; i <= creditoPersistido.numeroDePrestacoes; i++) {
+            // calcular vencimento
             if (periodo.contains('SEMANAL')) {
                 cal.add(Calendar.WEEK_OF_YEAR, 1)
             } else if (periodo.contains('QUINZENAL')) {
@@ -55,39 +88,42 @@ class CreditoService {
 
             Date dataVencimento = cal.time
 
-            BigDecimal valorEstaParcela = valorParcela
-            if (i == credito.numeroDePrestacoes) {
-                valorEstaParcela = credito.valorTotal - somaParcelas
-            }
+            BigDecimal valorEstaParcela = (i == creditoPersistido.numeroDePrestacoes) ?
+                    creditoPersistido.valorTotal - somaParcelas : valorParcela
             somaParcelas += valorEstaParcela
 
-            // CORREÇÃO: nome correto da variável
-            BigDecimal taxaJuros = credito.percentualDeJuros ?: 0
-            BigDecimal jurosParcela = credito.valorConcedido * (taxaJuros / 100)
+            BigDecimal taxaJuros = creditoPersistido.percentualDeJuros ?: 0
+            BigDecimal jurosParcela = calcularJurosParcela(saldoDevedor, taxaJuros)
+
             BigDecimal amortizacao = valorEstaParcela - jurosParcela
-            saldoDevedor = saldoDevedor - amortizacao
+            if (amortizacao < 0) amortizacao = BigDecimal.ZERO
 
-            Parcela parcela = new Parcela()
-            parcela.credito = credito
-            parcela.numero = i
-            parcela.descricao = "${i}ª Parcela"
-            parcela.dataVencimento = dataVencimento
-            parcela.valorParcela = valorEstaParcela
-            parcela.valorAmortizacao = amortizacao.setScale(2, RoundingMode.HALF_UP)
-            parcela.valorJuros = jurosParcela.setScale(2, RoundingMode.HALF_UP)
-            parcela.saldoDevedor = saldoDevedor.setScale(2, RoundingMode.HALF_UP)
-            parcela.status = StatusParcela.PENDENTE
-            parcela.criadoPor = credito.criadoPor
+            saldoDevedor -= amortizacao
 
-            parcela.save(flush: true)
+            Parcela parcela = new Parcela(
+                    credito: creditoPersistido,
+                    numero: i,
+                    descricao: "${i}ª Parcela",
+                    dataVencimento: dataVencimento,
+                    valorParcela: valorEstaParcela.max(BigDecimal.ZERO),
+                    valorAmortizacao: amortizacao.setScale(2, RoundingMode.HALF_UP),
+                    valorJuros: jurosParcela.setScale(2, RoundingMode.HALF_UP),
+                    saldoDevedor: saldoDevedor.setScale(2, RoundingMode.HALF_UP),
+                    status: StatusParcela.PENDENTE,
+                    criadoPor: creditoPersistido.criadoPor
+            )
+
+            parcela.save(flush: true, failOnError: true)
             println "Parcela ${i} - Venc: ${sdf.format(dataVencimento)}"
         }
 
-        credito.dataValidade = cal.time
-        credito.save(flush: true)
+        creditoPersistido.dataValidade = cal.time
+        creditoPersistido.save(flush: true, failOnError: true)
 
-        println "PARCELAS GERADAS COM SUCESSO! Total: ${credito.numeroDePrestacoes}"
+        println "PARCELAS GERADAS COM SUCESSO! Total: ${creditoPersistido.numeroDePrestacoes}"
     }
+
+
     /**
      * Registra pagamento de uma parcela
      */

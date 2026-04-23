@@ -56,7 +56,7 @@ class UrlMappings {
 
         // Rota sem ID (GET usa "index", POST usa "save")
         "/api/creditos"(controller: "credito") {
-            action = [GET: "index"]
+            action = [GET: "index",POST: "save"]
         }
 
         // ============================================================
