@@ -3,38 +3,64 @@ package app.timali
 class UrlMappings {
 
     static mappings = {
-        // Rotas da API explicitas para Entidade
-        // GET /api/entidades -> index
-        // POST /api/entidades -> save
-        "/api/entidades"(controller: "entidade") {
-            action = [GET: "index", POST: "save"]
-        }
 
-        // Rotas com ID
-        // GET /api/entidades/5 -> show
-        // PUT /api/entidades/5 -> update
-        // DELETE /api/entidades/5 -> delete
-        "/api/entidades/$id"(controller: "entidade") {
-            action = [GET: "show", PUT: "update", PATCH: "update", DELETE: "delete"]
-            constraints {
-                id matches: /\d+/
-            }
-        }
-        
-        // Rota para verificação de código
+        // ============================================================
+        // API - ENTIDADES
+        // ============================================================
+        "/api/entidades"(resources: 'entidade')
         "/api/entidades/verificar-codigo/$codigo"(controller: "entidade", action: "verificarCodigo")
 
-        // Rota principal e fallback para o React (SPA)
-        "/"(controller: "react", action: "index")
-        
-        // Exclui as rotas de API do fallback do React
-        "/**"(controller: "react", action: "index") {
-            constraints {
-                uri = /^(?!\/api\/).*/
+        // ============================================================
+        // API - USUÁRIOS
+        // ============================================================
+        "/api/usuarios"(resources: 'usuario')
+
+        // ============================================================
+        // API - DEFINIÇÕES DE CRÉDITO
+        // ============================================================
+        "/api/definicoes-credito"(resources: 'definicaoCredito')
+
+        // ============================================================
+        // API - CRÉDITOS - ROTA MANUAL PRIMEIRO!
+        // ============================================================
+        "/api/creditos/criar"(controller: "credito", action: "criarCreditoAction")
+
+        // ============================================================
+        // API - CRÉDITOS (RESOURCES)
+        // ============================================================
+        "/api/creditos"(resources: 'credito') {
+            collection {
+                '/buscar-clientes'(controller: 'credito', action: 'buscarClientes')
+            }
+            member {
+                '/invalidar'(controller: 'credito', action: 'invalidar')
+                '/arquivar'(controller: 'credito', action: 'arquivar')
+                '/extrato'(controller: 'credito', action: 'extrato')
+                '/parcelas'(controller: 'credito', action: 'parcelas')
             }
         }
 
-        "500"(view:'/error')
-        "404"(view:'/notFound')
+        "/api/creditos/$creditoId/parcelas/$parcelaId/pagar"(controller: 'credito', action: 'registrarPagamento') {
+            constraints {
+                creditoId matches: /\d+/
+                parcelaId matches: /\d+/
+            }
+        }
+
+        // ============================================================
+        // ROTAS DO REACT (SPA)
+        // ============================================================
+        "/"(controller: "react", action: "index")
+        "/**"(controller: "react", action: "index") {
+            constraints {
+                uri = ~/^(?!\/api\/).*/
+            }
+        }
+
+        // ============================================================
+        // PÁGINAS DE ERRO
+        // ============================================================
+        "500"(view: '/error')
+        "404"(view: '/notFound')
     }
 }

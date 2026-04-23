@@ -4,7 +4,13 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import LoginPage from './components/LoginPage';
 import EntidadeCRUD from './components/EntidadeCRUD';
 import TaxasPage from './pages/TaxasPage';
-import FeriadosPage from './pages/FeriadosPage'; // ← NOVO: Import da página de Feriados
+import FeriadosPage from './pages/FeriadosPage';
+import DefinicoesCreditoPage from './pages/DefinicoesCreditoPage';
+// NOVOS IMPORTS - MÓDULO DE CRÉDITO
+import CreditoIndex from './pages/credito/CreditoIndex';
+import CreditoCreate from './pages/credito/CreditoCreate';
+import CreditoShow from './pages/credito/CreditoShow';
+import ParcelaList from './components/credito/ParcelaList';
 
 // Componente para proteger rotas
 const PrivateRoute = ({ children }) => {
@@ -47,13 +53,31 @@ const Dashboard = () => {
             </p>
           </li>
 
-          {/* NOVO: Item de menu para Feriados */}
           <li style={{ marginBottom: '20px' }}>
             <Link to="/feriados" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#2196F3' }}>
               📅 Gerir Feriados
             </Link>
             <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
-              Configurar feriados nacionais, provinciais e municipais para cálculo de datas de pagamento
+              Configurar feriados nacionais, provinciais e municipais
+            </p>
+          </li>
+
+          <li style={{ marginBottom: '20px' }}>
+            <Link to="/definicoes-credito" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#2196F3' }}>
+              📦 Definições de Crédito
+            </Link>
+            <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
+              Configurar pacotes/templates de crédito (prestações, juros, mora)
+            </p>
+          </li>
+
+          {/* NOVO: Item de menu para Créditos */}
+          <li style={{ marginBottom: '20px' }}>
+            <Link to="/creditos" style={{ fontSize: '18px', fontWeight: 'bold', textDecoration: 'none', color: '#4CAF50' }}>
+              💵 Gerir Créditos
+            </Link>
+            <p style={{ marginLeft: '20px', fontSize: '14px', color: '#666' }}>
+              Conceder créditos, visualizar parcelas e gerir pagamentos
             </p>
           </li>
         </ul>
@@ -82,33 +106,75 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
+          {/* Rota pública */}
           <Route path="/login" element={<LoginPage />} />
 
+          {/* Dashboard */}
           <Route path="/" element={
             <PrivateRoute>
               <Dashboard />
             </PrivateRoute>
           } />
 
+          {/* Entidades */}
           <Route path="/entidades" element={
             <PrivateRoute>
               <EntidadeCRUD />
             </PrivateRoute>
           } />
 
+          {/* Taxas */}
           <Route path="/taxas" element={
             <PrivateRoute>
               <TaxasPage />
             </PrivateRoute>
           } />
 
-          {/* NOVO: Rota para o CRUD de Feriados */}
+          {/* Feriados */}
           <Route path="/feriados" element={
             <PrivateRoute>
               <FeriadosPage />
             </PrivateRoute>
           } />
 
+          {/* Definições de Crédito */}
+          <Route path="/definicoes-credito" element={
+            <PrivateRoute>
+              <DefinicoesCreditoPage />
+            </PrivateRoute>
+          } />
+
+          {/* ========== NOVAS ROTAS - MÓDULO DE CRÉDITO ========== */}
+
+          {/* Lista de Créditos */}
+          <Route path="/creditos" element={
+            <PrivateRoute>
+              <CreditoIndex />
+            </PrivateRoute>
+          } />
+
+          {/* Novo Crédito */}
+          <Route path="/creditos/novo" element={
+            <PrivateRoute>
+              <CreditoCreate />
+            </PrivateRoute>
+          } />
+
+          {/* Detalhes do Crédito */}
+          <Route path="/creditos/:id" element={
+            <PrivateRoute>
+              <CreditoShow />
+            </PrivateRoute>
+          } />
+
+          {/* Parcelas do Crédito */}
+          <Route path="/creditos/:id/parcelas" element={
+            <PrivateRoute>
+              <ParcelaList />
+            </PrivateRoute>
+          } />
+
+          {/* Rota fallback */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
