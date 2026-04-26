@@ -16,6 +16,21 @@ class GenericUpdateInterceptor implements Interceptor {
         match(uri: '/api/**')
     }
 
+    /**
+     * Mapeamento de nomes de recursos (URL) para nomes de entidades (Classe)
+     * Chave: nome do recurso na URL (plural/camelCase)
+     * Valor: nome da classe de domínio (singular/PascalCase)
+     */
+    static final Map<String, String> RESOURCE_TO_ENTITY = [
+            'definicoesCredito': 'DefinicaoCredito',
+            'creditos': 'Credito',
+            'parcelas': 'Parcela',
+            'entidades': 'Entidade',
+            'taxas': 'Taxa',
+            'feriados': 'Feriado',
+            'produtos': 'Produto'
+    ]
+
     boolean before() {
         if (request.method in ['PUT', 'PATCH']) {
             println ""
@@ -45,10 +60,14 @@ class GenericUpdateInterceptor implements Interceptor {
 
                     if (pathParts.length >= 3) {
                         def resourceName = pathParts[2]
-                        // Remove 's' do final para singular
-                        def entityName = resourceName.endsWith('s') ?
-                                resourceName[0..-2].capitalize() :
-                                resourceName.capitalize()
+
+                        // 1. Tenta obter do mapeamento explícito
+                        def entityName = RESOURCE_TO_ENTITY[resourceName]
+
+                        if (!entityName) {
+                            // 2. Fallback: tenta singularizar (remove 's', 'es', 'res')
+                            entityName = singularize(resourceName).capitalize()
+                        }
 
                         println ">>> Recurso: ${resourceName}"
                         println ">>> Entidade: ${entityName}"
@@ -87,6 +106,45 @@ class GenericUpdateInterceptor implements Interceptor {
             }
         }
         return true
+    }
+
+    /**
+     * Tenta converter um nome de recurso plural para singular
+     * Ex: definicoesCredito -> DefinicaoCredito
+     *     creditos -> Credito
+     *     entidades -> Entidade
+     *     taxas -> Taxa
+     *     feriados -> Feriado
+     */
+    private String singularize(String plural) {
+        // Se já não termina com 's', retorna como está
+        if (!plural.endsWith('s')) {
+            return plural
+        }
+
+        // Remove terminações comuns de plural
+        if (plural.endsWith('oes')) {
+            // "definicoes" -> "definicao"
+            return plural[0..-4] + 'ao'
+        }
+        if (plural.endsWith('aes')) {
+            // "taxas" não chega aqui, é tratado pelo mapeamento
+            return plural[0..-4] + 'ao'
+        }
+        if (plural.endsWith('res')) {
+            // "entidades" não chega aqui, mas por segurança
+            return plural[0..-4]
+        }
+        if (plural.endsWith('es')) {
+            // "creditos" -> "Credito"
+            return plural[0..-3]
+        }
+        if (plural.endsWith('s')) {
+            // Caso geral: remove o 's' final
+            return plural[0..-2]
+        }
+
+        return plural
     }
 
     boolean after() { true }

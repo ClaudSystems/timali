@@ -59,7 +59,7 @@ const creditoService = {
     });
   },
 
-  listarDefinicoes: () => request('/definicoes-credito'),
+  listarDefinicoes: () => request('/definicoesCredito'),
 
   listar: (params = {}) => {
     const queryString = new URLSearchParams(params).toString();

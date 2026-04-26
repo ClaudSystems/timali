@@ -24,7 +24,7 @@ class GenericUpdateService {
         println "ID: ${id}"
         println "=========================================="
 
-        // CORRIGIDO: Detecta automaticamente o nome da tabela via Hibernate
+        // Detecta automaticamente o nome da tabela via Hibernate
         String tableName = getTableNameFromHibernate(entityName)
         println "Tabela detectada: ${tableName}"
 
@@ -32,7 +32,7 @@ class GenericUpdateService {
 
         try {
             // Primeiro, verifica se o registro existe
-            def checkSql = "SELECT COUNT(*) FROM ${tableName} WHERE id = ?"
+            String checkSql = "SELECT COUNT(*) FROM ${tableName} WHERE id = ?"
             def count = sql.firstRow(checkSql, [id])?.count ?: 0
 
             if (count == 0) {
@@ -60,7 +60,7 @@ class GenericUpdateService {
                     // Converte o valor adequadamente
                     def convertedValue = convertValueForColumn(value, key)
 
-                    if (convertedValue != null && convertedValue.toString().trim().isEmpty() == false) {
+                    if (convertedValue != null && !convertedValue.toString().trim().isEmpty()) {
                         String updateSql = "UPDATE ${tableName} SET ${columnName} = ? WHERE id = ?"
 
                         println "SQL: ${updateSql}"
@@ -89,10 +89,18 @@ class GenericUpdateService {
 
         } catch (Exception e) {
             println "❌ Erro na transação: ${e.message}"
-            sql.rollback()
+            try {
+                sql.rollback()
+            } catch (Exception rollbackEx) {
+                println "⚠️ Erro no rollback: ${rollbackEx.message}"
+            }
             throw e
         } finally {
-            sql.close()
+            try {
+                sql.close()
+            } catch (Exception closeEx) {
+                println "⚠️ Erro ao fechar conexão: ${closeEx.message}"
+            }
         }
 
         // Recarrega a entidade do banco
@@ -100,57 +108,86 @@ class GenericUpdateService {
     }
 
     /**
-     * Obtém o nome da tabela diretamente do mapeamento Hibernate
+     * Obtém o nome da tabela via SessionFactory do Hibernate (método mais confiável)
      */
     private String getTableNameFromHibernate(String entityName) {
         try {
-            // Tenta obter via Hibernate Datastore
-            def sessionFactory = hibernateDatastore.sessionFactory
-            def metamodel = sessionFactory.metamodel
+            // Tenta carregar a classe de domínio
+            def domainClass = Class.forName("app.timali.${entityName}")
 
-            // Procura a entidade no metamodel
-            def entityPersister = sessionFactory.getMetamodel().getEntities().find { entity ->
-                entity.name.endsWith(".${entityName}") || entity.name == "app.timali.${entityName}"
-            }
+            // Obtém o SessionFactory do domínio
+            def sessionFactory = domainClass.getSessionFactory()
 
-            if (entityPersister) {
-                // Usa reflection para acessar informações da entidade
-                def classMetadata = sessionFactory.getClassMetadata(Class.forName("app.timali.${entityName}"))
-                if (classMetadata) {
+            if (sessionFactory) {
+                // Obtém os metadados da classe (onde está o nome real da tabela)
+                def classMetadata = sessionFactory.getClassMetadata(domainClass)
+                if (classMetadata && classMetadata.tableName) {
+                    println "✅ Nome da tabela obtido via ClassMetadata: ${classMetadata.tableName}"
                     return classMetadata.tableName
+                }
+
+                // Alternativa: tenta via metamodel
+                try {
+                    def metamodel = sessionFactory.metamodel
+                    def entityPersister = metamodel.entityPersister(domainClass.name)
+                    if (entityPersister?.identifierTableName) {
+                        println "✅ Nome da tabela obtido via Metamodel: ${entityPersister.identifierTableName}"
+                        return entityPersister.identifierTableName
+                    }
+                } catch (Exception metaEx) {
+                    println "⚠️ Metamodel não disponível: ${metaEx.message}"
+                }
+
+                // Terceira alternativa: via EntityManager
+                try {
+                    def entityManager = sessionFactory.createEntityManager()
+                    def tableName = entityManager.metamodel.entity(domainClass).name
+                    if (tableName) {
+                        println "✅ Nome da tabela obtido via EntityManager: ${tableName}"
+                        return tableName
+                    }
+                } catch (Exception emEx) {
+                    println "⚠️ EntityManager não disponível: ${emEx.message}"
                 }
             }
         } catch (Exception e) {
             println "⚠️ Não foi possível obter tabela via Hibernate: ${e.message}"
         }
 
-        // Fallback: usa o padrão ou mapeamento manual
+        // Fallback: usa mapeamento manual
         return getTableNameFallback(entityName)
     }
 
     /**
-     * Fallback para quando não consegue detectar via Hibernate
+     * Fallback manual (apenas para quando o Hibernate falhar)
      */
-    // grails-app/services/app/timali/GenericUpdateService.groovy
-// Atualize o método getTableNameFallback()
-
     private String getTableNameFallback(String entityName) {
-        // Mapeamento manual para casos especiais
+        // Mapeamento manual para TODAS as entidades conhecidas
         def tableMapping = [
-                'Taxa': 'taxas',
+                'DefinicaoCredito': 'definicoes_credito',
+                'Credito': 'creditos',
+                'Parcela': 'parcelas',
                 'Entidade': 'entidade',
+                'Taxa': 'taxas',
+                'Feriado': 'feriados',
                 'Produto': 'produtos',
                 'AuthUser': 'auth_user',
-                'AuthRole': 'auth_role',
-                'Feriado': 'feriados'  // ← ADICIONE ESTA LINHA
+                'AuthRole': 'auth_role'
         ]
 
         if (tableMapping.containsKey(entityName)) {
+            println "✅ Nome da tabela obtido via mapeamento manual: ${tableMapping[entityName]}"
             return tableMapping[entityName]
         }
 
-        // Regra geral: nome da classe em minúsculo + 's'
-        return camelToSnake(entityName) + 's'
+        // Regra geral CORRIGIDA: converte camelCase para snake_case
+        String snake = entityName.replaceAll(/([A-Z])/, '_$1').toLowerCase()
+        // Remove underscore inicial se existir
+        if (snake.startsWith('_')) {
+            snake = snake.substring(1)
+        }
+        println "⚠️ Nome da tabela gerado por regra geral: ${snake}"
+        return snake
     }
 
     /**
@@ -167,6 +204,7 @@ class GenericUpdateService {
             return result != null
         } catch (Exception e) {
             // Se der erro, assume que existe para tentar a atualização
+            println "⚠️ Não foi possível verificar coluna '${columnName}': ${e.message}"
             return true
         }
     }
@@ -174,15 +212,13 @@ class GenericUpdateService {
     /**
      * Converte o valor baseado no tipo do campo
      */
-
-
     private def convertValueForColumn(def value, String fieldName) {
         if (value == null) return null
 
         // Tratamento especial para Enums
-        if (fieldName in ['tipoCalculo', 'tipo', 'abrangencia']) {
+        if (fieldName in ['tipoCalculo', 'tipo', 'abrangencia', 'periodicidade', 'formaDeCalculo', 'periodicidadeMora']) {
             if (value instanceof Map && value.name) {
-                return value.name  // Extrai o nome do Enum (ex: "FIXO", "NACIONAL")
+                return value.name  // Extrai o nome do Enum
             }
             return value?.toString()
         }
@@ -190,6 +226,11 @@ class GenericUpdateService {
         // Tratamento para JSON
         if (fieldName == 'faixasJson' && value instanceof Map) {
             return groovy.json.JsonOutput.toJson(value)
+        }
+
+        // Tratamento para relacionamentos (taxa, entidade, etc.)
+        if (value instanceof Map && value.id) {
+            return value.id  // Retorna apenas o ID do relacionamento
         }
 
         // Converte valores normais
@@ -207,30 +248,40 @@ class GenericUpdateService {
             return value
         }
 
-        def str = value.toString().trim()
+        // Se for uma string
+        if (value instanceof String) {
+            def str = value.trim()
+            if (str.isEmpty()) return null
 
-        if (str.isEmpty()) return null
+            // Detectar boolean
+            if (str.equalsIgnoreCase('true')) return true
+            if (str.equalsIgnoreCase('false')) return false
 
-        // Detectar boolean
-        if (str.equalsIgnoreCase('true')) return true
-        if (str.equalsIgnoreCase('false')) return false
+            // Detectar número inteiro
+            if (str.isInteger()) return str.toInteger()
 
-        // Detectar número inteiro
-        if (str.isInteger()) return str.toInteger()
+            // Detectar número decimal
+            if (str.isBigDecimal()) return new BigDecimal(str)
+            if (str.isNumber() && str.contains('.')) return str.toDouble()
 
-        // Detectar número decimal
-        if (str.isBigDecimal()) return new BigDecimal(str)
-        if (str.isNumber() && str.contains('.')) return str.toDouble()
+            // String normal
+            return str
+        }
 
-        // String normal
-        return str
+        // Outros tipos: converte para string
+        return value.toString().trim()
     }
 
     /**
      * Converte camelCase para snake_case
      */
     private String camelToSnake(String camel) {
-        camel.replaceAll(/([A-Z])/, '_$1').toLowerCase()
+        String snake = camel.replaceAll(/([A-Z])/, '_$1').toLowerCase()
+        // Remove underscore inicial se existir
+        if (snake.startsWith('_')) {
+            snake = snake.substring(1)
+        }
+        return snake
     }
 
     /**
@@ -240,13 +291,8 @@ class GenericUpdateService {
         try {
             def domainClass = Class.forName("app.timali.${entityName}")
 
-            // Limpa o cache do Hibernate
-            domainClass.withSession { session ->
-                session.clear()
-            }
-
             // Recarrega a entidade
-            return domainClass.get(id)
+            return domainClass.findById(id)
         } catch (Exception e) {
             println "❌ Erro ao recarregar entidade: ${e.message}"
             return null

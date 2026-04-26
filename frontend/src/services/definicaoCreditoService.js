@@ -1,7 +1,7 @@
 // src/services/definicaoCreditoService.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api/definicoes-credito';
+const API_URL = 'http://localhost:8080/api/definicoesCredito';
 
 const api = axios.create({
   baseURL: API_URL,

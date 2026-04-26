@@ -4,6 +4,7 @@ class UrlMappings {
 
     static mappings = {
 
+
         // ============================================================
         // API - ENTIDADES
         // ============================================================
@@ -18,7 +19,7 @@ class UrlMappings {
         // ============================================================
         // API - DEFINIÇÕES DE CRÉDITO
         // ============================================================
-        "/api/definicoes-credito"(resources: 'definicaoCredito')
+        "/api/definicoesCredito"(resources: 'definicaoCredito')
 
         // ============================================================
         // API - CRÉDITOS
@@ -27,6 +28,9 @@ class UrlMappings {
         // Rotas específicas PRIMEIRO
         "/api/creditos/buscar-clientes"(controller: "credito", action: "buscarClientes")
         "/api/creditos/criar"(controller: "credito", action: "criarCreditoAction")
+
+        // NOVA ROTA: Recalcular todos os créditos
+        "/api/creditos/recalcular-todos"(controller: "credito", action: "recalcularTodos")
 
         // Rotas com path adicional
         "/api/creditos/$id/invalidar"(controller: "credito", action: "invalidar") {
@@ -38,6 +42,12 @@ class UrlMappings {
         "/api/creditos/$id/extrato"(controller: "credito", action: "extrato") {
             constraints { id matches: /\d+/ }
         }
+
+        // NOVA ROTA: Recalcular um crédito específico
+        "/api/creditos/$id/recalcular"(controller: "credito", action: "recalcular") {
+            constraints { id matches: /\d+/ }
+        }
+
         "/api/creditos/$creditoId/parcelas"(controller: "credito", action: "parcelas") {
             constraints { creditoId matches: /\d+/ }
         }
@@ -56,8 +66,13 @@ class UrlMappings {
 
         // Rota sem ID (GET usa "index", POST usa "save")
         "/api/creditos"(controller: "credito") {
-            action = [GET: "index",POST: "save"]
+            action = [GET: "index", POST: "save"]
         }
+
+        // ============================================================
+        // API - SETTINGS (NOVO)
+        // ============================================================
+        "/api/settings"(resources: 'settings')
 
         // ============================================================
         // ROTAS DO REACT (SPA)

@@ -1,9 +1,13 @@
 // src/pages/DefinicoesCreditoPage.jsx
 import React, { useState, useEffect } from 'react';
+import { Button, Card, Space, message, Spin, Typography, ConfigProvider } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import DefinicaoCreditoList from '../components/definicoesCredito/DefinicaoCreditoList';
 import DefinicaoCreditoForm from '../components/definicoesCredito/DefinicaoCreditoForm';
 import { definicaoCreditoService } from '../services/definicaoCreditoService';
-import './DefinicoesCreditoPage.css';
+import ptBR from 'antd/es/locale/pt_BR';
+
+const { Title } = Typography;
 
 // Função para extrair valor de Enum (garante string)
 const normalizeEnum = (value) => {
@@ -53,12 +57,11 @@ const DefinicoesCreditoPage = () => {
     setLoading(true);
     try {
       const data = await definicaoCreditoService.listar();
-      // NORMALIZA os dados antes de colocar no estado
       const dadosNormalizados = normalizeDefinicoes(data);
       console.log('📥 Dados normalizados:', dadosNormalizados);
       setDefinicoes(Array.isArray(dadosNormalizados) ? dadosNormalizados : []);
     } catch (err) {
-      alert('Erro ao carregar definições: ' + err.message);
+      message.error('Erro ao carregar definições: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -70,78 +73,95 @@ const DefinicoesCreditoPage = () => {
   };
 
   const handleEdit = (definicao) => {
-    // A definição já está normalizada ao vir da lista
     setSelectedDefinicao(definicao);
     setShowForm(true);
   };
 
   const handleDelete = async (definicao) => {
-    if (!window.confirm(`Excluir a definição "${definicao.nome}"?`)) return;
-
     try {
       await definicaoCreditoService.deletar(definicao.id);
+      message.success('Definição excluída com sucesso!');
       await carregarDefinicoes();
-      alert('Definição excluída com sucesso!');
     } catch (err) {
-      alert('Erro ao excluir: ' + err.message);
+      message.error('Erro ao excluir: ' + err.message);
     }
   };
 
   const handleSubmit = async (formData) => {
     setFormLoading(true);
     try {
-      let result;
       if (selectedDefinicao?.id) {
-        result = await definicaoCreditoService.atualizar(selectedDefinicao.id, formData);
-        alert('Definição atualizada!');
+        await definicaoCreditoService.atualizar(selectedDefinicao.id, formData);
+        message.success('Definição atualizada com sucesso!');
       } else {
-        result = await definicaoCreditoService.criar(formData);
-        alert('Definição criada!');
+        await definicaoCreditoService.criar(formData);
+        message.success('Definição criada com sucesso!');
       }
 
       await carregarDefinicoes();
       setShowForm(false);
       setSelectedDefinicao(null);
     } catch (err) {
-      alert('Erro ao salvar: ' + (err.errors ? JSON.stringify(err.errors) : err.message));
+      message.error('Erro ao salvar: ' + (err.errors ? JSON.stringify(err.errors) : err.message));
     } finally {
       setFormLoading(false);
     }
   };
 
+  const handleCancel = () => {
+    setShowForm(false);
+    setSelectedDefinicao(null);
+  };
+
   return (
-    <div className="definicoes-page">
-      <div className="page-header">
-        <h1>📦 Definições de Crédito</h1>
-        {!showForm && (
-          <button onClick={handleCreate} className="btn-primary">
-            + Nova Definição
-          </button>
+    <ConfigProvider locale={ptBR}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: 24 }}>
+        {/* Cabeçalho */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 30
+        }}>
+          <Title level={2} style={{ margin: 0 }}>
+            📦 Definições de Crédito
+          </Title>
+
+          {!showForm && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleCreate}
+              size="large"
+            >
+              Nova Definição
+            </Button>
+          )}
+        </div>
+
+        {/* Conteúdo */}
+        {showForm ? (
+          <Card
+            title={selectedDefinicao ? 'Editar Definição' : 'Nova Definição de Crédito'}
+            style={{ borderRadius: 12 }}
+          >
+            <DefinicaoCreditoForm
+              definicao={selectedDefinicao}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              loading={formLoading}
+            />
+          </Card>
+        ) : (
+          <DefinicaoCreditoList
+            definicoes={definicoes}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            loading={loading}
+          />
         )}
       </div>
-
-      {showForm ? (
-        <div className="form-container">
-          <h2>{selectedDefinicao ? 'Editar Definição' : 'Nova Definição de Crédito'}</h2>
-          <DefinicaoCreditoForm
-            definicao={selectedDefinicao}
-            onSubmit={handleSubmit}
-            onCancel={() => {
-              setShowForm(false);
-              setSelectedDefinicao(null);
-            }}
-            loading={formLoading}
-          />
-        </div>
-      ) : (
-        <DefinicaoCreditoList
-          definicoes={definicoes}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          loading={loading}
-        />
-      )}
-    </div>
+    </ConfigProvider>
   );
 };
 

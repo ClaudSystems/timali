@@ -4,13 +4,13 @@ import grails.compiler.GrailsCompileStatic
 import grails.gorm.annotation.Entity
 import grails.rest.Resource
 
+
 @GrailsCompileStatic
 @Entity
 // @Resource(uri = '/api/creditos', formats = ['json'], readOnly = false)
 class Credito implements Serializable {
 
     private static final long serialVersionUID = 1
-
     Entidade entidade
     Usuario usuario
     DefinicaoCredito definicaoCredito

@@ -3,6 +3,7 @@ package app.timali
 import app.timali.Usuario
 import app.timali.Role
 import app.timali.UsuarioRole
+import grails.gorm.transactions.Transactional
 
 class BootStrap {
 
@@ -21,8 +22,13 @@ class BootStrap {
         println "=" * 60
         println ">>> JWT Secret configurada via Bootstrap"
         println "=" * 60
-        // =======================================================
 
+        // =======================================================
+        // Inicializa as configurações do sistema
+        initSettings()
+
+        // =======================================================
+        // Inicializa usuários e roles
         Usuario.withTransaction {
             // Criar as roles se não existirem
             def adminRole = Role.findByAuthority('ROLE_ADMIN') ?: new Role(authority: 'ROLE_ADMIN').save(flush: true)
@@ -61,8 +67,41 @@ class BootStrap {
 
             println ">>> BootStrap: Utilizador 'admin' garantido com sucesso."
         }
+        // Recalcular totais de todos os créditos ao iniciar
+        try {
+            println "🔄 Recalculando totais dos créditos..."
+            creditoService.recalcularTodosCreditos()
+            println "✅ Totais recalculados com sucesso!"
+        } catch (Exception e) {
+            println "⚠️ Erro ao recalcular: ${e.message}"
+        }
     }
 
     def destroy = {
+    }
+
+    /**
+     * Inicializa as configurações do sistema com valores padrão
+     */
+    @Transactional
+    void initSettings() {
+        if (Settings.count() == 0) {
+            Settings settings = new Settings(
+                    nome: 'default',
+                    permitirDesembolsoComDivida: false,
+                    pagamentosEmOrdem: false,
+                    ignorarValorPagoNoPrazo: false,
+                    pagarEmSequencia: false,
+                    alterarDataPagamento: false
+            )
+            settings.save(flush: true, failOnError: true)
+            println "=" * 60
+            println ">>> Settings criadas com valores padrão!"
+            println "=" * 60
+        } else {
+            println "=" * 60
+            println ">>> Settings já existem! Total: ${Settings.count()}"
+            println "=" * 60
+        }
     }
 }

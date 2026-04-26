@@ -19,22 +19,28 @@ class CorsFilter implements Filter {
         // LOG PARA DEBUG
         println ">>> CorsFilter interceptou: ${request.method} ${request.requestURI}"
 
-        // Define os cabeçalhos CORS para TODAS as respostas
-        response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000")
+        // CORRIGIDO: Usa a origem da requisição (dinâmico) com fallback para localhost:3000
+        String origin = request.getHeader("Origin")
+        if (origin) {
+            response.setHeader("Access-Control-Allow-Origin", origin)
+        } else {
+            response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000")
+        }
+
         response.setHeader("Access-Control-Allow-Credentials", "true")
-        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
         response.setHeader("Access-Control-Max-Age", "3600")
-        response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept, Origin")
-        response.setHeader("Access-Control-Expose-Headers", "Authorization")
+        response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept, Origin, Cache-Control")
+        response.setHeader("Access-Control-Expose-Headers", "Authorization, Content-Type")
 
         // Se for uma requisição preflight (OPTIONS), retorna 200 imediatamente
         if ("OPTIONS".equalsIgnoreCase(request.method)) {
             println ">>> OPTIONS request - retornando 200 OK"
             response.status = HttpServletResponse.SC_OK
-            return
+            response.writer.flush()  // ← ADICIONADO: Garante que a resposta seja enviada
+        } else {
+            chain.doFilter(req, res)
         }
-
-        chain.doFilter(req, res)
     }
 
     @Override

@@ -12,7 +12,7 @@ import grails.rest.Resource
  * selecionará uma definição de crédito que será usada como base.
  */
 @GrailsCompileStatic
-@Resource(uri = '/api/definicoes-credito', formats = ['json'], readOnly = false)
+@Resource(uri = '/api/definicoesCredito', formats = ['json'], readOnly = false)
 class DefinicaoCredito {
 
     // =========================================================================
@@ -175,8 +175,22 @@ class DefinicaoCredito {
     static mapping = {
         table 'definicoes_credito'
         sort nome: 'asc'
+
+        // Mapeamento explícito de todas as colunas compostas
+        numeroDePrestacoes column: 'numero_de_prestacoes'
+        formaDeCalculo column: 'forma_de_calculo'
+        percentualDeJuros column: 'percentual_de_juros'
+        percentualJurosDeDemora column: 'percentual_juros_de_demora'
+        periodicidadeMora column: 'periodicidade_mora'
+        maximoCobrancasMora column: 'maximo_cobrancas_mora'
+        excluirSabados column: 'excluir_sabados'
+        excluirDomingos column: 'excluir_domingos'
+        excluirDiaDePagNoSabado column: 'excluir_dia_de_pag_no_sabado'
+        excluirDiaDePagNoDomingo column: 'excluir_dia_de_pag_no_domingo'
+
         dateCreated column: 'data_criacao'
         lastUpdated column: 'data_atualizacao'
+
         taxa column: 'taxa_id', fetch: 'join'
         ativo index: 'idx_definicoes_credito_ativo'
     }

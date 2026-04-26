@@ -1,0 +1,1 @@
+docker exec -it timali_postgres psql -U timali_user -d timali_db

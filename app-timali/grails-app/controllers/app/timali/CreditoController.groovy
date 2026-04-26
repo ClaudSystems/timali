@@ -19,6 +19,53 @@ class CreditoController {
     // GET /api/creditos
     // CreditoController.groovy
     // CreditoController.groovy
+    // Dentro do CreditoController.groovy, adicione:
+
+/**
+ * POST /api/creditos/recalcular-todos
+ * Recalcula os totais de todos os créditos
+ */
+    def recalcularTodos() {
+        try {
+            def resultado = creditoService.recalcularTodosCreditos()
+            render status: 200, text: [
+                    message: "Recálculo concluído!",
+                    atualizados: resultado.atualizados,
+                    comErro: resultado.comErro,
+                    total: resultado.total
+            ] as JSON
+        } catch (Exception e) {
+            log.error("Erro ao recalcular: ${e.message}", e)
+            render status: 500, text: [message: "Erro: ${e.message}"] as JSON
+        }
+    }
+
+/**
+ * PUT /api/creditos/{id}/recalcular
+ * Recalcula os totais de um crédito específico
+ */
+    def recalcular(Long id) {
+        def credito = Credito.get(id)
+        if (!credito) {
+            render status: 404, text: [message: "Crédito não encontrado"] as JSON
+            return
+        }
+
+        try {
+            creditoService.recalcularTotais(credito)
+            render status: 200, text: [
+                    message: "Crédito recalculado!",
+                    id: credito.id,
+                    numero: credito.numero,
+                    totalPrevisto: credito.totalPrevisto,
+                    totalPago: credito.totalPago,
+                    totalEmDivida: credito.totalEmDivida
+            ] as JSON
+        } catch (Exception e) {
+            render status: 500, text: [message: "Erro: ${e.message}"] as JSON
+        }
+    }
+    // CreditoController.groovy - método index() CORRIGIDO
     def index() {
         def max = params.max ? params.int('max') : 20
         def offset = params.offset ? params.int('offset') : 0
@@ -26,42 +73,59 @@ class CreditoController {
         def creditos = Credito.list(max: max, offset: offset, sort: 'dataEmissao', order: 'desc')
 
         def sdf = new java.text.SimpleDateFormat('yyyy-MM-dd')
-        def extrairEnum = { val -> val?.toString() ?: null }
+        def safeEnum = { val -> try { return val?.toString() } catch (e) { return null } }
+        def safeDate = { data -> try { return sdf.format(data) } catch (e) { return null } }
+        def safeDecimal = { val -> try { return (val ?: 0.0) as BigDecimal } catch (e) { return 0.0 } }
 
-        def formatarData = { data ->
-            if (!data) return null
+        def result = []
+
+        creditos.each { credito ->
             try {
-                if (data instanceof java.sql.Timestamp) {
-                    return sdf.format(new Date(data.time))
+                BigDecimal saldoDevedor = BigDecimal.ZERO
+                try {
+                    if (credito.parcelas && credito.parcelas.size() > 0) {
+                        BigDecimal totalParcelas = credito.parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0
+                        BigDecimal totalPago = credito.parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0
+                        saldoDevedor = totalParcelas - totalPago
+                    } else {
+                        saldoDevedor = (credito.valorTotal ?: 0.0) - (credito.totalPago ?: 0.0)
+                    }
+                } catch (e) {
+                    saldoDevedor = (credito.valorTotal ?: 0.0) - (credito.totalPago ?: 0.0)
                 }
-                return sdf.format(data)
-            } catch (Exception e) {
-                return data.toString()
-            }
-        }
+                if (saldoDevedor < 0) saldoDevedor = BigDecimal.ZERO
 
-        def result = creditos.collect { credito ->
-            [
-                    id: credito.id,
-                    numero: credito.numero,
-                    valorConcedido: credito.valorConcedido,
-                    valorTotal: credito.valorTotal,
-                    totalPago: credito.totalPago,
-                    totalEmDivida: credito.totalEmDivida,
-                    numeroDePrestacoes: credito.numeroDePrestacoes,
-                    periodicidade: extrairEnum(credito.periodicidade),
-                    formaDeCalculo: extrairEnum(credito.formaDeCalculo),
-                    status: extrairEnum(credito.status),
-                    dataEmissao: formatarData(credito.dataEmissao),
-                    dataValidade: formatarData(credito.dataValidade),
-                    quitado: credito.quitado,
-                    emMora: credito.emMora,
-                    ativo: credito.ativo,
-                    entidade: credito.entidade ? [
-                            id: credito.entidade.id,
-                            nome: credito.entidade.nome
-                    ] : null
-            ]
+                // Entidade segura
+                def entidadeData = null
+                try {
+                    if (credito.entidade) {
+                        entidadeData = [id: credito.entidade.id, nome: credito.entidade.nome]
+                    }
+                } catch (e) {
+                    entidadeData = [id: null, nome: 'N/A']
+                }
+
+                result << [
+                        id: credito.id,
+                        numero: credito.numero,
+                        valorConcedido: safeDecimal(credito.valorConcedido),
+                        valorTotal: safeDecimal(credito.valorTotal),
+                        totalPago: safeDecimal(credito.totalPago),
+                        totalEmDivida: saldoDevedor.setScale(2, RoundingMode.HALF_UP),
+                        numeroDePrestacoes: credito.numeroDePrestacoes,
+                        periodicidade: safeEnum(credito.periodicidade),
+                        formaDeCalculo: safeEnum(credito.formaDeCalculo),
+                        status: safeEnum(credito.status),
+                        dataEmissao: safeDate(credito.dataEmissao),
+                        dataValidade: safeDate(credito.dataValidade),
+                        quitado: credito.quitado ?: false,
+                        emMora: credito.emMora ?: false,
+                        ativo: credito.ativo ?: false,
+                        entidade: entidadeData
+                ]
+            } catch (Exception e) {
+                log.error("Erro ao processar crédito ${credito?.id}: ${e.message}")
+            }
         }
 
         render result as JSON
@@ -72,103 +136,137 @@ class CreditoController {
     // CreditoController.groovy
     // CreditoController.groovy
 
-
     def mostrar() {
         Long id = params.long('id')
-        def credito = Credito.get(id)
 
-        if (!credito) {
-            render status: 404, text: [message: "Crédito não encontrado"] as JSON
-            return
-        }
-
-        def formatarData = { data ->
-            if (!data) return null
-            try {
-                if (data instanceof java.sql.Timestamp) {
-                    return new java.text.SimpleDateFormat('yyyy-MM-dd').format(new Date(data.time))
-                }
-                return new java.text.SimpleDateFormat('yyyy-MM-dd').format(data)
-            } catch (Exception e) {
-                return data.toString()
+        try {
+            def credito = Credito.get(id)
+            if (!credito) {
+                render status: 404, text: [message: "Crédito não encontrado"] as JSON
+                return
             }
-        }
 
-        def extrairEnum = { val -> val?.toString() ?: null }
+            // Funções ultra-seguras
+            def safeEnum = { val ->
+                try { return val?.toString() } catch (e) { return null }
+            }
+            def safeDate = { data ->
+                try { return data?.format('yyyy-MM-dd') } catch (e) { return null }
+            }
+            def safeDecimal = { val ->
+                try { return (val ?: 0.0) as BigDecimal } catch (e) { return 0.0 }
+            }
 
-        def parcelas = credito.parcelas?.collect { parcela ->
-            [
-                    id: parcela.id,
-                    numero: parcela.numero,
-                    dataVencimento: formatarData(parcela.dataVencimento),
-                    valorParcela: parcela.valorParcela,
-                    valorAmortizacao: parcela.valorAmortizacao,
-                    valorJuros: parcela.valorJuros,
-                    valorMulta: parcela.valorMulta,
-                    valorJurosDemora: parcela.valorJurosDemora,
-                    valorPago: parcela.valorPago,
-                    saldoDevedor: parcela.saldoDevedor,
-                    status: extrairEnum(parcela.status),
-                    diasAtraso: parcela.diasAtraso,
-                    pago: parcela.pago
+            // CORREÇÃO: Acessar definicaoCredito de forma segura
+            def definicaoCreditoData = null
+            try {
+                if (credito.definicaoCredito) {
+                    definicaoCreditoData = [
+                            id: credito.definicaoCredito?.id,
+                            nome: credito.definicaoCredito?.nome
+                    ]
+                }
+            } catch (Exception e) {
+                log.warn("DefinicaoCredito não encontrada para crédito ${id}: ${e.message}")
+                definicaoCreditoData = [id: null, nome: 'Definição removida']
+            }
+
+            // CORREÇÃO: Acessar entidade de forma segura
+            def entidadeData = null
+            try {
+                if (credito.entidade) {
+                    entidadeData = [
+                            id: credito.entidade?.id,
+                            nome: credito.entidade?.nome,
+                            codigo: credito.entidade?.codigo
+                    ]
+                }
+            } catch (Exception e) {
+                log.warn("Entidade não encontrada para crédito ${id}: ${e.message}")
+                entidadeData = [id: null, nome: 'N/A', codigo: '']
+            }
+
+            // CORREÇÃO: Acessar usuario de forma segura
+            def usuarioData = null
+            try {
+                if (credito.usuario) {
+                    usuarioData = [
+                            id: credito.usuario?.id,
+                            username: credito.usuario?.username
+                    ]
+                }
+            } catch (Exception e) {
+                log.warn("Usuario não encontrado para crédito ${id}: ${e.message}")
+                usuarioData = [id: null, username: 'Sistema']
+            }
+
+            // Parcelas com segurança
+            def parcelas = []
+            try {
+                credito.parcelas?.each { p ->
+                    try {
+                        parcelas << [
+                                id: p?.id,
+                                numero: p?.numero ?: 0,
+                                dataVencimento: safeDate(p?.dataVencimento),
+                                valorParcela: safeDecimal(p?.valorParcela),
+                                valorAmortizacao: safeDecimal(p?.valorAmortizacao),
+                                valorJuros: safeDecimal(p?.valorJuros),
+                                valorMulta: safeDecimal(p?.valorMulta),
+                                valorJurosDemora: safeDecimal(p?.valorJurosDemora),
+                                valorPago: safeDecimal(p?.valorPago),
+                                saldoDevedor: safeDecimal(p?.saldoDevedor),
+                                status: safeEnum(p?.status),
+                                diasAtraso: p?.diasAtraso ?: 0,
+                                pago: p?.pago ?: false
+                        ]
+                    } catch (e) {
+                        log.error("Erro na parcela ${p?.id}: ${e.message}")
+                    }
+                }
+            } catch (e) {
+                log.error("Erro ao acessar parcelas: ${e.message}")
+            }
+
+            // Totais
+            BigDecimal totalParcelas = parcelas.sum { (it.valorParcela ?: 0.0) as BigDecimal } ?: 0.0
+            BigDecimal totalPago = parcelas.sum { (it.valorPago ?: 0.0) as BigDecimal } ?: 0.0
+
+            def result = [
+                    id: credito.id,
+                    numero: credito.numero,
+                    valorConcedido: safeDecimal(credito.valorConcedido),
+                    valorTotal: safeDecimal(credito.valorTotal),
+                    percentualDeJuros: safeDecimal(credito.percentualDeJuros),
+                    percentualJurosDeDemora: safeDecimal(credito.percentualJurosDeDemora),
+                    numeroDePrestacoes: credito.numeroDePrestacoes,
+                    periodicidade: safeEnum(credito.periodicidade),
+                    formaDeCalculo: safeEnum(credito.formaDeCalculo),
+                    status: safeEnum(credito.status),
+                    dataEmissao: safeDate(credito.dataEmissao),
+                    dataValidade: safeDate(credito.dataValidade),
+                    quitado: credito.quitado ?: false,
+                    emMora: credito.emMora ?: false,
+                    ativo: credito.ativo ?: false,
+                    descricao: credito.descricao,
+                    criadoPor: credito.criadoPor,
+                    entidade: entidadeData,
+                    definicaoCredito: definicaoCreditoData,
+                    usuario: usuarioData,
+                    parcelas: parcelas,
+                    totais: [
+                            totalPrevisto: totalParcelas.setScale(2, RoundingMode.HALF_UP),
+                            totalPago: totalPago.setScale(2, RoundingMode.HALF_UP),
+                            saldoPendente: (totalParcelas - totalPago).setScale(2, RoundingMode.HALF_UP)
+                    ]
             ]
-        } ?: []
 
-        // Totais agregados
-        BigDecimal totalParcelas = parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0
-        BigDecimal totalAmortizacao = parcelas.sum { it.valorAmortizacao ?: 0.0 } ?: 0.0
-        BigDecimal totalJuros = parcelas.sum { it.valorJuros ?: 0.0 } ?: 0.0
-        BigDecimal totalMulta = parcelas.sum { it.valorMulta ?: 0.0 } ?: 0.0
-        BigDecimal totalJurosDemora = parcelas.sum { it.valorJurosDemora ?: 0.0 } ?: 0.0
-        BigDecimal totalPago = parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0
+            render result as JSON
 
-        def totais = [
-                totalPrevisto: totalParcelas.setScale(2, RoundingMode.HALF_UP),
-                totalAmortizacao: totalAmortizacao.setScale(2, RoundingMode.HALF_UP),
-                totalJuros: totalJuros.setScale(2, RoundingMode.HALF_UP),
-                totalMulta: totalMulta.setScale(2, RoundingMode.HALF_UP),
-                totalJurosDemora: totalJurosDemora.setScale(2, RoundingMode.HALF_UP),
-                totalPago: totalPago.setScale(2, RoundingMode.HALF_UP),
-                saldoPendente: (totalParcelas - totalPago).setScale(2, RoundingMode.HALF_UP)
-        ]
-
-        def result = [
-                id: credito.id,
-                numero: credito.numero,
-                valorConcedido: credito.valorConcedido,
-                valorTotal: credito.valorTotal,
-                percentualDeJuros: credito.percentualDeJuros,
-                percentualJurosDeDemora: credito.percentualJurosDeDemora,
-                numeroDePrestacoes: credito.numeroDePrestacoes,
-                periodicidade: extrairEnum(credito.periodicidade),
-                formaDeCalculo: extrairEnum(credito.formaDeCalculo),
-                status: extrairEnum(credito.status),
-                dataEmissao: formatarData(credito.dataEmissao),
-                dataValidade: formatarData(credito.dataValidade),
-                quitado: credito.quitado,
-                emMora: credito.emMora,
-                ativo: credito.ativo,
-                descricao: credito.descricao,
-                criadoPor: credito.criadoPor,
-                atualizadoPor: credito.atualizadoPor,
-                entidade: credito.entidade ? [
-                        id: credito.entidade.id,
-                        nome: credito.entidade.nome,
-                        codigo: credito.entidade.codigo
-                ] : [id: null, nome: 'N/A', codigo: ''],
-                definicaoCredito: credito.definicaoCredito ? [
-                        id: credito.definicaoCredito.id,
-                        nome: credito.definicaoCredito.nome
-                ] : [id: null, nome: 'Personalizada'],
-                usuario: credito.usuario ? [
-                        id: credito.usuario.id,
-                        username: credito.usuario.username
-                ] : [id: null, username: 'Sistema'],
-                parcelas: parcelas,
-                totais: totais
-        ]
-
-        render result as JSON
+        } catch (Exception e) {
+            log.error("ERRO CRÍTICO no mostrar(${id}): ${e.message}", e)
+            render status: 500, text: [message: "Erro: ${e.message}"] as JSON
+        }
     }
 
     // ========== ENUM DA PARCELA CONVERTIDO PARA STRING ==========

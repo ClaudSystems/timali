@@ -17,9 +17,10 @@ import {
   Switch,
   Alert,
   Space,
-  ConfigProvider
+  ConfigProvider,
+  Typography
 } from 'antd';
-import { SearchOutlined, SaveOutlined, RollbackOutlined } from '@ant-design/icons';
+import { SearchOutlined, SaveOutlined, RollbackOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import creditoService from '../../services/creditoService';
 import moment from 'moment';
 import ptBR from 'antd/es/locale/pt_BR';
@@ -28,6 +29,7 @@ import 'moment/locale/pt-br';
 moment.locale('pt-br');
 
 const { TextArea } = Input;
+const { Text } = Typography;
 
 const CreditoForm = () => {
   const navigate = useNavigate();
@@ -48,6 +50,9 @@ const CreditoForm = () => {
     carregarTodasEntidades();
   }, []);
 
+  // ====================================================================
+  // CARREGAR DEFINIÇÕES
+  // ====================================================================
   const carregarDefinicoes = async () => {
     setLoadingDefinicoes(true);
     try {
@@ -79,6 +84,9 @@ const CreditoForm = () => {
     }
   };
 
+  // ====================================================================
+  // CARREGAR ENTIDADES
+  // ====================================================================
   const carregarTodasEntidades = async () => {
     try {
       const token = localStorage.getItem('timali_token');
@@ -108,6 +116,9 @@ const CreditoForm = () => {
     }
   };
 
+  // ====================================================================
+  // BUSCAR CLIENTES
+  // ====================================================================
   const buscarClientes = (termo) => {
     if (!termo || termo.length < 2) {
       setClientes([]);
@@ -133,6 +144,9 @@ const CreditoForm = () => {
     form.setFieldsValue({ entidadeId: clienteId });
   };
 
+  // ====================================================================
+  // EXTRAIR VALOR DE ENUM
+  // ====================================================================
   const extrairValorEnum = (enumValue) => {
     if (!enumValue) return '';
     if (typeof enumValue === 'string') return enumValue;
@@ -148,6 +162,9 @@ const CreditoForm = () => {
     return '';
   };
 
+  // ====================================================================
+  // HANDLER: MUDAR DEFINIÇÃO
+  // ====================================================================
   const handleDefinicaoChange = (definicaoId) => {
     const definicao = definicoes.find(d => d.id === definicaoId);
     setDefinicaoSelecionada(definicao);
@@ -157,9 +174,6 @@ const CreditoForm = () => {
 
       const periodicidadeStr = extrairValorEnum(definicao.periodicidade) || 'MENSAL';
       const formaCalculoStr = extrairValorEnum(definicao.formaDeCalculo) || 'JUROS_SIMPLES';
-
-      console.log('Periodicidade extraída:', periodicidadeStr);
-      console.log('Forma de Cálculo extraída:', formaCalculoStr);
 
       form.setFieldsValue({
         percentualDeJuros: definicao.percentualDeJuros,
@@ -171,6 +185,9 @@ const CreditoForm = () => {
     }
   };
 
+  // ====================================================================
+  // HANDLER: USAR DEFINIÇÃO
+  // ====================================================================
   const handleUsarDefinicaoChange = (checked) => {
     setUsarDefinicao(checked);
 
@@ -188,6 +205,9 @@ const CreditoForm = () => {
     }
   };
 
+  // ====================================================================
+  // HANDLER: SUBMIT DO FORMULÁRIO (CORRIGIDO)
+  // ====================================================================
   const onFinish = async (values) => {
     console.log('Values do form:', values);
 
@@ -220,25 +240,56 @@ const CreditoForm = () => {
     setLoading(true);
     try {
       const response = await creditoService.criar(dadosParaEnviar);
-      console.log('Resposta:', response);
-      message.success('Crédito criado com sucesso!');
+      console.log('📦 Resposta completa da criação:', response);
 
-      setTimeout(() => {
-        navigate('/creditos');
-      }, 1500);
+      // ================================================================
+      // CORREÇÃO: Extrair ID e redirecionar para CreditoShow
+      // ================================================================
+      let creditoId = null;
+
+      if (response?.id) {
+        creditoId = response.id;
+      } else if (response?.data?.id) {
+        creditoId = response.data.id;
+      } else if (typeof response === 'number') {
+        creditoId = response;
+      }
+
+      if (creditoId) {
+        message.success(`✅ Crédito #${response?.numero || creditoId} criado com sucesso!`);
+
+        // Pequeno delay para o backend processar as parcelas
+        setTimeout(() => {
+          // REDIRECIONAR PARA A PÁGINA DE DETALHES (CreditoShow)
+          navigate(`/creditos/${creditoId}`);
+        }, 800);
+      } else {
+        // Fallback: se não encontrou o ID, voltar para a lista
+        console.warn('⚠️ ID do crédito não encontrado na resposta');
+        message.success('Crédito criado com sucesso!');
+        setTimeout(() => {
+          navigate('/creditos');
+        }, 1500);
+      }
 
     } catch (error) {
-      console.error('Erro ao criar crédito:', error);
+      console.error('❌ Erro ao criar crédito:', error);
       message.error('Erro ao criar crédito: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setLoading(false);
     }
   };
 
+  // ====================================================================
+  // HANDLER: CANCELAR
+  // ====================================================================
   const handleCancel = () => {
     navigate('/creditos');
   };
 
+  // ====================================================================
+  // OPÇÕES PARA OS SELECTS
+  // ====================================================================
   const opcoesDefinicoes = definicoes.map(d => ({
     label: `${d.nome || 'Sem nome'} - Máx ${d.numeroDePrestacoes || 0}x`,
     value: d.id
@@ -249,6 +300,9 @@ const CreditoForm = () => {
     value: c.id
   }));
 
+  // ====================================================================
+  // RENDER
+  // ====================================================================
   return (
     <ConfigProvider locale={ptBR}>
       <Card
@@ -284,6 +338,9 @@ const CreditoForm = () => {
             percentualJurosDeDemora: 0
           }}
         >
+          {/* ============================================================ */}
+          {/* SEÇÃO 1: BUSCA DO CLIENTE                                   */}
+          {/* ============================================================ */}
           <Divider orientation="left">Cliente</Divider>
 
           <Form.Item
@@ -304,19 +361,23 @@ const CreditoForm = () => {
             />
           </Form.Item>
 
+          {/* Dados do cliente (visualização) */}
           {clienteSelecionado && (
             <Alert
               message="Cliente Selecionado"
               description={
                 <Row gutter={16}>
                   <Col span={8}>
-                    <strong>Código:</strong> {clienteSelecionado.codigo || 'N/A'}
+                    <Text type="secondary">Código:</Text><br />
+                    <Text strong>{clienteSelecionado.codigo || 'N/A'}</Text>
                   </Col>
                   <Col span={8}>
-                    <strong>Nome:</strong> {clienteSelecionado.nome || 'N/A'}
+                    <Text type="secondary">Nome:</Text><br />
+                    <Text strong>{clienteSelecionado.nome || 'N/A'}</Text>
                   </Col>
                   <Col span={8}>
-                    <strong>Documento:</strong> {clienteSelecionado.numero_de_identificao || clienteSelecionado.nuit || 'N/A'}
+                    <Text type="secondary">Documento:</Text><br />
+                    <Text strong>{clienteSelecionado.numero_de_identificao || clienteSelecionado.nuit || 'N/A'}</Text>
                   </Col>
                 </Row>
               }
@@ -330,11 +391,18 @@ const CreditoForm = () => {
             <Input />
           </Form.Item>
 
+          {/* ============================================================ */}
+          {/* SEÇÃO 2: CONFIGURAÇÃO DO CRÉDITO                            */}
+          {/* ============================================================ */}
           <Divider orientation="left">Configuração do Crédito</Divider>
 
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Usar Definição Pré-configurada" valuePropName="checked">
+            <Col span={8}>
+              <Form.Item
+                label="Usar Definição Pré-configurada"
+                valuePropName="checked"
+                tooltip="Ative para usar uma definição já cadastrada"
+              >
                 <Switch
                   checked={usarDefinicao}
                   onChange={handleUsarDefinicaoChange}
@@ -380,25 +448,6 @@ const CreditoForm = () => {
 
             <Col span={8}>
               <Form.Item
-                name="percentualDeJuros"
-                label="Taxa de Juros (%)"
-                rules={[{ required: true, message: 'Informe a taxa de juros' }]}
-                tooltip="Percentual de juros ao mês"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  max={100}
-                  precision={4}
-                  disabled={usarDefinicao}
-                  size="large"
-                  placeholder="0,00"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col span={8}>
-              <Form.Item
                 name="numeroDePrestacoes"
                 label="Número de Prestações"
                 rules={[{ required: true, message: 'Informe o número de prestações' }]}
@@ -413,9 +462,7 @@ const CreditoForm = () => {
                 />
               </Form.Item>
             </Col>
-          </Row>
 
-          <Row gutter={16}>
             <Col span={8}>
               <Form.Item
                 name="periodicidade"
@@ -428,6 +475,27 @@ const CreditoForm = () => {
                   <Select.Option value="SEMANAL">Semanal</Select.Option>
                   <Select.Option value="DIARIO">Diário</Select.Option>
                 </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="percentualDeJuros"
+                label="Taxa de Juros (%)"
+                rules={[{ required: true, message: 'Informe a taxa de juros' }]}
+                tooltip="Percentual de juros ao mês"
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  max={100}
+                  precision={4}
+                  disabled={usarDefinicao}
+                  size="large"
+                  placeholder="0,00"
+                />
               </Form.Item>
             </Col>
 
@@ -466,6 +534,9 @@ const CreditoForm = () => {
             </Col>
           </Row>
 
+          {/* ============================================================ */}
+          {/* SEÇÃO 3: DATA DE CONCESSÃO                                  */}
+          {/* ============================================================ */}
           <Divider orientation="left">Data de Concessão</Divider>
 
           <Row gutter={16}>
@@ -474,27 +545,35 @@ const CreditoForm = () => {
                 name="dataEmissao"
                 label="Data de Concessão/Desembolso"
                 rules={[{ required: true, message: 'Selecione a data' }]}
-                extra="Data em que o crédito foi concedido. O primeiro vencimento será calculado automaticamente."
+                extra="Data em que o crédito foi concedido."
+                getValueFromEvent={(date) => date}
+                getValueProps={(value) => ({ value: value || moment() })}
               >
                 <DatePicker
                   style={{ width: '100%' }}
                   format="DD/MM/YYYY"
                   size="large"
-                  defaultValue={moment()}
+                  disabledDate={(current) => {
+                    return current && current.isAfter(moment(), 'day')
+                  }}
                 />
               </Form.Item>
             </Col>
 
             <Col span={12}>
               <Alert
-                message="Informação"
+                message="Como funciona?"
                 description="O primeiro vencimento será calculado automaticamente baseado na data de concessão + periodicidade selecionada."
                 type="info"
                 showIcon
+                icon={<InfoCircleOutlined />}
               />
             </Col>
           </Row>
 
+          {/* ============================================================ */}
+          {/* SEÇÃO 4: INFORMAÇÕES ADICIONAIS                             */}
+          {/* ============================================================ */}
           <Divider orientation="left">Informações Adicionais</Divider>
 
           <Form.Item name="descricao" label="Descrição/Observações">

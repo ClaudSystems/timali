@@ -299,19 +299,47 @@ class Feriado {
         return "${abrangencia?.descricao} - ${localidade}"
     }
 
+    // =========================================================================
+    // CICLO DE VIDA GORM
+    // =========================================================================
+
     /**
-     * Before validate - garante consistência dos dados
+     * Antes de inserir no banco - LOG PARA DEBUG
+     */
+    def beforeInsert() {
+        println ">>> beforeInsert: nome=${nome}, tipo=${tipo}, abrangencia=${abrangencia}, dataFixa=${dataFixa}"
+    }
+
+    /**
+     * Antes de validar - garante consistência dos dados
      */
     def beforeValidate() {
         nome = nome?.trim()
 
-        // CORRIGIDO: Se for nacional, garante que localidade seja null
-        if (abrangencia?.toString() == 'NACIONAL') {
+        if (tipo instanceof String) {
+            try {
+                tipo = TipoFeriado.valueOf(tipo.trim().toUpperCase())
+            } catch (Exception e) {
+                println ">>> ERRO ao converter tipo: ${e.message}"
+            }
+        }
+
+        if (abrangencia instanceof String) {
+            try {
+                abrangencia = TipoAbrangencia.valueOf(abrangencia.trim().toUpperCase())
+            } catch (Exception e) {
+                println ">>> ERRO ao converter abrangencia: ${e.message}"
+                abrangencia = TipoAbrangencia.NACIONAL
+            }
+        }
+
+        if (abrangencia?.name() == 'NACIONAL') {
             localidade = null
         } else if (localidade) {
             localidade = localidade.trim()
         }
     }
+
 }
 
 // =========================================================================
@@ -329,7 +357,9 @@ enum TipoAbrangencia {
         this.descricao = descricao
     }
 
-    String toString() { descricao }
+    String toString() { name() }  // ← CORRIGIDO: retorna "NACIONAL" em vez de "Nacional"
+
+    String getDescricao() { descricao }  // ← ADICIONADO: método separado para descrição
 }
 
 enum TipoFeriado {
@@ -344,5 +374,7 @@ enum TipoFeriado {
         this.descricao = descricao
     }
 
-    String toString() { descricao }
+    String toString() { name() }  // ← CORRIGIDO: retorna "FIXO" em vez da descrição
+
+    String getDescricao() { descricao }  // ← ADICIONADO
 }
