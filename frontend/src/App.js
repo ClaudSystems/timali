@@ -14,8 +14,12 @@ import CreditoShow from './pages/credito/CreditoShow';
 import ParcelaList from './components/credito/ParcelaList';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import Caixa from './components/caixa/Caixa'; // ← NOVO: Import do módulo Caixa
 import { SettingsProvider } from './contexts/SettingsContext';
 import MainLayout from './components/layouts/MainLayout';
+import HistoricoRecibos from './components/caixa/HistoricoRecibos';
+
+// Adicione a rota:
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('timali_token');
@@ -28,6 +32,14 @@ function App() {
       <SettingsProvider>
         <Router>
           <Routes>
+          <Route path="/recibos" element={
+              <PrivateRoute>
+                  <MainLayout>
+                      <HistoricoRecibos />
+                  </MainLayout>
+              </PrivateRoute>
+          } />
+
             <Route path="/login" element={<LoginPage />} />
 
             <Route path="/" element={
@@ -98,6 +110,17 @@ function App() {
               <PrivateRoute>
                 <MainLayout>
                   <ParcelaList />
+                </MainLayout>
+              </PrivateRoute>
+            } />
+
+            {/* ============================================ */}
+            {/* NOVA ROTA: Módulo Caixa / Pagamentos          */}
+            {/* ============================================ */}
+            <Route path="/caixa" element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Caixa />
                 </MainLayout>
               </PrivateRoute>
             } />

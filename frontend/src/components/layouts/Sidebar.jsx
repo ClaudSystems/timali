@@ -1,21 +1,26 @@
 // src/components/layouts/Sidebar.jsx
+
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
-  DollarOutlined,
+  PercentageOutlined,
   CalendarOutlined,
-  SettingOutlined,
+  FileTextOutlined,
   CreditCardOutlined,
-  ToolOutlined,
+  SettingOutlined,
+  WalletOutlined,
+  HistoryOutlined,        // ← ADICIONAR ESTA LINHA
+  LogoutOutlined,
 } from '@ant-design/icons';
 
 const { Sider } = Layout;
 
-const AppSidebar = ({ collapsed, location }) => {
+const Sidebar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const menuItems = [
     {
@@ -30,24 +35,22 @@ const AppSidebar = ({ collapsed, location }) => {
     },
     {
       key: '/creditos',
-      icon: <DollarOutlined />,
+      icon: <CreditCardOutlined />,
       label: 'Créditos',
-      children: [
-        {
-          key: '/creditos',
-          icon: <DollarOutlined />,
-          label: 'Lista de Créditos',
-        },
-        {
-          key: '/creditos/novo',
-          icon: <CreditCardOutlined />,
-          label: 'Novo Crédito',
-        },
-      ],
+    },
+    {
+      key: '/caixa',
+      icon: <WalletOutlined />,
+      label: 'Caixa',
+    },
+    {
+      key: '/recibos',
+      icon: <HistoryOutlined />,
+      label: 'Recibos',
     },
     {
       key: '/taxas',
-      icon: <CreditCardOutlined />,
+      icon: <PercentageOutlined />,
       label: 'Taxas',
     },
     {
@@ -57,80 +60,52 @@ const AppSidebar = ({ collapsed, location }) => {
     },
     {
       key: '/definicoesCredito',
-      icon: <SettingOutlined />,
-      label: 'Def. Crédito',
-    },
-    {
-      type: 'divider',
+      icon: <FileTextOutlined />,
+      label: 'Definições',
     },
     {
       key: '/settings',
-      icon: <ToolOutlined />,
+      icon: <SettingOutlined />,
       label: 'Configurações',
     },
   ];
 
-  const getSelectedKey = () => {
-    const path = location.pathname;
-    if (path === '/') return '/';
-    if (path.startsWith('/creditos/novo')) return '/creditos/novo';
-    if (path.startsWith('/creditos')) return '/creditos';
-    if (path.startsWith('/entidades')) return '/entidades';
-    if (path.startsWith('/taxas')) return '/taxas';
-    if (path.startsWith('/feriados')) return '/feriados';
-    if (path.startsWith('/definicoesCredito')) return '/definicoesCredito';
-    if (path.startsWith('/settings')) return '/settings';
-    return '/';
-  };
-
-  const getOpenKeys = () => {
-    const path = location.pathname;
-    if (path.startsWith('/creditos')) return ['/creditos'];
-    return [];
+  const handleMenuClick = ({ key }) => {
+    navigate(key);
   };
 
   return (
     <Sider
-      trigger={null}
-      collapsible
-      collapsed={collapsed}
-      theme="dark"
-      width={220}
+      breakpoint="lg"
+      collapsedWidth="80"
       style={{
-        overflow: 'auto',
-        height: '100vh',
+        minHeight: '100vh',
+        background: '#001529',
       }}
     >
       <div style={{
         height: 64,
-        margin: 0,
+        margin: 16,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
       }}>
-        <h1 style={{
-          color: 'white',
-          fontSize: collapsed ? 20 : 24,
-          fontWeight: 'bold',
-          margin: 0,
-          letterSpacing: 2,
-          transition: 'all 0.2s',
-        }}>
-          {collapsed ? 'T' : 'TIMALI'}
-        </h1>
+        <WalletOutlined style={{ marginRight: 8 }} />
+        Timali
       </div>
 
       <Menu
         theme="dark"
         mode="inline"
-        selectedKeys={[getSelectedKey()]}
-        defaultOpenKeys={getOpenKeys()}
+        selectedKeys={[location.pathname]}
         items={menuItems}
-        onClick={({ key }) => navigate(key)}
+        onClick={handleMenuClick}
       />
     </Sider>
   );
 };
 
-export default AppSidebar;
+export default Sidebar;

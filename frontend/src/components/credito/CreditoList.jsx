@@ -420,10 +420,10 @@ const CreditoList = () => {
                 <Table.Summary.Cell index={0} colSpan={2}>
                   <strong>Totais ({creditos.length} créditos)</strong>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={1} colSpan={1}>
+                <Table.Summary.Cell index={1} colSpan={2}>
                   <strong>Pago: {formatarMoeda(totalPago)}</strong>
                 </Table.Summary.Cell>
-                <Table.Summary.Cell index={2} colSpan={1}>
+                <Table.Summary.Cell index={2} colSpan={2}>
                   <strong style={{ color: '#ff4d4f' }}>Saldo: {formatarMoeda(totalSaldo)}</strong>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={3} colSpan={4} />

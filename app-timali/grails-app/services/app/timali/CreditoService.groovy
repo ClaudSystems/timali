@@ -202,33 +202,67 @@ class CreditoService {
     /**
      * Recalcula os totais de um crédito específico
      */
+    // No CreditoService.groovy
+
+    // CreditoService.groovy - método recalcularTotais
+
     Credito recalcularTotais(Credito credito) {
         if (!credito) return null
 
         if (credito.parcelas && credito.parcelas.size() > 0) {
+            // Total previsto
             credito.totalPrevisto = (credito.parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalPago = (credito.parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalPagoNoPrazo = (credito.parcelas.findAll { it.pagoNoPrazo }.sum { it.valorPago ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalEmDivida = credito.totalPrevisto - credito.totalPago
-            credito.totalJurosPago = (credito.parcelas.sum { it.jurosPago ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalMultaPago = (credito.parcelas.sum { it.multaPago ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalJurosDemoraPago = (credito.parcelas.sum { it.jurosDemoraPago ?: 0.0 } ?: 0.0) as BigDecimal
 
-            // Atualizar status
-            if (credito.totalEmDivida <= 0 && credito.totalPago > 0) {
+            // Total pago
+            credito.totalPago = (credito.parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0) as BigDecimal
+
+            // Total pago no prazo - GARANTIR QUE NÃO SEJA NULL
+            def pagasNoPrazo = credito.parcelas.findAll { it.pagoNoPrazo }
+            credito.totalPagoNoPrazo = (pagasNoPrazo.sum { it.valorPago ?: 0.0 } ?: 0.0) as BigDecimal
+
+            // Total em dívida
+            credito.totalEmDivida = ((credito.totalPrevisto ?: 0.0) - (credito.totalPago ?: 0.0)).max(0.0) as BigDecimal
+
+            // Totais de juros e multas
+            credito.totalJurosPago = (credito.parcelas.sum { it.valorPagoJuros ?: 0.0 } ?: 0.0) as BigDecimal
+            credito.totalMultaPago = (credito.parcelas.sum { it.valorPagoMulta ?: 0.0 } ?: 0.0) as BigDecimal
+            credito.totalJurosDemoraPago = (credito.parcelas.sum { it.valorPagoJurosDemora ?: 0.0 } ?: 0.0) as BigDecimal
+
+            // Verificar status
+            boolean todasPagas = credito.parcelas.every { it.pago }
+
+            if (todasPagas && credito.totalEmDivida <= 0) {
                 credito.status = StatusCredito.QUITADO
                 credito.quitado = true
-            } else if (credito.emMora) {
+                credito.ativo = false
+                credito.emMora = false
+            } else if (credito.parcelas.any { it.dataVencimento < new Date() && !it.pago }) {
                 credito.status = StatusCredito.EM_ATRASO
+                credito.emMora = true
             } else {
                 credito.status = StatusCredito.ATIVO
+                credito.emMora = false
             }
         } else {
             credito.totalPrevisto = credito.valorTotal ?: 0.0
-            credito.totalEmDivida = (credito.valorTotal ?: 0.0) - (credito.totalPago ?: 0.0)
+            credito.totalPago = credito.totalPago ?: 0.0
+            credito.totalPagoNoPrazo = credito.totalPagoNoPrazo ?: 0.0  // Garantir valor padrão
+            credito.totalEmDivida = ((credito.totalPrevisto ?: 0.0) - (credito.totalPago ?: 0.0)).max(0.0)
+            credito.totalJurosPago = credito.totalJurosPago ?: 0.0
+            credito.totalMultaPago = credito.totalMultaPago ?: 0.0
+            credito.totalJurosDemoraPago = credito.totalJurosDemoraPago ?: 0.0
         }
 
-        credito.save(flush: true, failOnError: true)
+        // GARANTIR QUE NENHUM CAMPO OBRIGATÓRIO SEJA NULL
+        credito.totalPagoNoPrazo = credito.totalPagoNoPrazo ?: 0.0
+        credito.totalJurosPago = credito.totalJurosPago ?: 0.0
+        credito.totalMultaPago = credito.totalMultaPago ?: 0.0
+        credito.totalJurosDemoraPago = credito.totalJurosDemoraPago ?: 0.0
+
+        if (!credito.save(flush: true, failOnError: true)) {
+            log.error("Erro ao salvar crédito: ${credito.errors}")
+        }
+
         return credito
     }
 
@@ -324,27 +358,60 @@ class CreditoService {
     /**
      * Registra pagamento de uma parcela
      */
+    // grails-app/services/app/timali/CreditoService.groovy
+
+/**
+ * Registra pagamento de uma parcela (aceita pagamento parcial)
+ */
     @Transactional
     def registrarPagamento(Parcela parcela, BigDecimal valorPago, String formaPagamento, String comprovativo) {
         if (!parcela) throw new IllegalArgumentException("Parcela não pode ser nula")
-        if (parcela.pago) throw new IllegalStateException("Parcela já foi paga")
+        if (!valorPago || valorPago <= 0) throw new IllegalArgumentException("Valor pago deve ser maior que zero")
 
-        parcela.valorPago = valorPago ?: parcela.valorParcela
-        parcela.dataPagamento = new Date()
-        parcela.pago = true
-        parcela.status = StatusParcela.PAGO
+        log.info("💰 Registrando pagamento - Parcela #${parcela.numero} - Valor: ${valorPago}")
+
+        // Se a parcela já está paga, não faz nada
+        if (parcela.pago) {
+            log.warn("Parcela #${parcela.numero} já está paga")
+            return
+        }
+
+        // Acumular valor pago (permite pagamento parcial)
+        BigDecimal valorPagoAnterior = parcela.valorPago ?: 0.0
+        BigDecimal valorTotalPago = valorPagoAnterior + valorPago
+
+        parcela.valorPago = valorTotalPago
         parcela.formaPagamento = formaPagamento
         parcela.comprovativo = comprovativo
 
-        if (parcela.dataPagamento <= parcela.dataVencimento) {
-            parcela.pagoNoPrazo = true
+        // Verificar se a parcela foi totalmente quitada
+        if (valorTotalPago >= parcela.valorParcela) {
+            parcela.valorPago = parcela.valorParcela // Não deixa ultrapassar
+            parcela.pago = true
+            parcela.dataPagamento = new Date()
+            parcela.status = StatusParcela.PAGA
+
+            if (parcela.dataPagamento <= parcela.dataVencimento) {
+                parcela.pagoNoPrazo = true
+            }
+
+            log.info("✅ Parcela #${parcela.numero} QUITADA")
+        } else {
+            // Pagamento parcial - a parcela continua pendente
+            log.info("📝 Pagamento parcial - Parcela #${parcela.numero}: ${valorTotalPago}/${parcela.valorParcela}")
         }
 
-        parcela.save(flush: true, failOnError: true)
+        // Salvar parcela
+        if (!parcela.save(flush: true, failOnError: true)) {
+            log.error("Erro ao salvar parcela: ${parcela.errors}")
+            throw new RuntimeException("Erro ao salvar parcela: ${parcela.errors}")
+        }
 
         // Recalcular totais do crédito
         recalcularTotais(parcela.credito)
 
         log.info("✅ Pagamento registrado - Parcela #${parcela.numero} - Crédito #${parcela.credito.numero}")
+
+        return parcela
     }
 }

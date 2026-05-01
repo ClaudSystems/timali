@@ -49,7 +49,10 @@ const request = async (url, options = {}) => {
 };
 
 const creditoService = {
-  buscarClientes: (termo) => request(`/creditos/buscar-clientes?termo=${encodeURIComponent(termo)}`),
+  buscarClientes: (termo) => request(`/creditos/buscarClientes?termo=${encodeURIComponent(termo)}`),
+  // NOVO: Buscar créditos por cliente
+    buscarCreditosPorCliente: (termo) => request(`/creditos/buscarCreditosPorCliente?termo=${encodeURIComponent(termo)}`),
+
 
   // creditoService.js
   criar: (data) => {
@@ -81,7 +84,21 @@ const creditoService = {
       body: JSON.stringify(data)
     }),
 
-  extrato: (id) => request(`/creditos/${id}/extrato`)
+  extrato: (id) => request(`/creditos/${id}/extrato`),
+      buscarPagamentosPorCredito: (creditoId) =>
+          request(`/creditos/${creditoId}/pagamentos`),
+
+      // Histórico geral de pagamentos
+      historicoPagamentos: (params = {}) => {
+          const queryString = new URLSearchParams(params).toString();
+          const url = queryString ? `/creditos/historicoPagamentos?${queryString}` : '/creditos/historicoPagamentos';
+          return request(url);
+      },
+
+      // Pagamentos por período
+      pagamentosPorPeriodo: (dataInicio, dataFim) =>
+          request(`/creditos/pagamentosPorPeriodo?dataInicio=${dataInicio}&dataFim=${dataFim}`)
+
 };
 
 export default creditoService;

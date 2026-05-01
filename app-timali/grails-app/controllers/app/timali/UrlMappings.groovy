@@ -4,7 +4,6 @@ class UrlMappings {
 
     static mappings = {
 
-
         // ============================================================
         // API - ENTIDADES
         // ============================================================
@@ -26,11 +25,20 @@ class UrlMappings {
         // ============================================================
 
         // Rotas específicas PRIMEIRO
-        "/api/creditos/buscar-clientes"(controller: "credito", action: "buscarClientes")
+        // Adicione ANTES das outras rotas de crédito
+// Na seção de créditos:
+        "/api/creditos/$creditoId/pagamentos"(controller: "credito", action: "buscarPagamentosPorCredito") {
+            constraints { creditoId matches: /\d+/ }
+        }
+        "/api/creditos/historicoPagamentos"(controller: "credito", action: "historicoPagamentos")
+        "/api/creditos/pagamentosPorPeriodo"(controller: "credito", action: "pagamentosPorPeriodo")
+        "/api/creditos/buscarCreditosPorCliente"(controller: "credito", action: "buscarCreditosPorCliente")
+        "/api/creditos/buscarClientes"(controller: "credito", action: "buscarClientes")
+
         "/api/creditos/criar"(controller: "credito", action: "criarCreditoAction")
 
         // NOVA ROTA: Recalcular todos os créditos
-        "/api/creditos/recalcular-todos"(controller: "credito", action: "recalcularTodos")
+        "/api/creditos/recalcularTodos"(controller: "credito", action: "recalcularTodos")
 
         // Rotas com path adicional
         "/api/creditos/$id/invalidar"(controller: "credito", action: "invalidar") {
@@ -66,6 +74,40 @@ class UrlMappings {
 
         // Rota sem ID (GET usa "index", POST usa "save")
         "/api/creditos"(controller: "credito") {
+            action = [GET: "index", POST: "save"]
+        }
+
+        // ============================================================
+        // API - PAGAMENTOS (NOVO MÓDULO CAIXA)
+        // ============================================================
+
+        // Rotas específicas do Caixa PRIMEIRO
+        "/api/pagamentos/buscarCreditos"(controller: "pagamento", action: "buscarCreditosPorCliente")
+        "/api/pagamentos/registrar"(controller: "pagamento", action: "registrarPagamento")
+        "/api/pagamentos/caixa/resumo"(controller: "pagamento", action: "resumoCaixa")
+        "/api/pagamentos/caixa/hoje"(controller: "pagamento", action: "pagamentosDoDia")
+
+        // Rotas com path adicional para parcelas
+        "/api/pagamentos/$creditoId/parcelas"(controller: "pagamento", action: "buscarParcelas") {
+            constraints { creditoId matches: /\d+/ }
+        }
+        "/api/pagamentos/$parcelaId/calcularMora"(controller: "pagamento", action: "calcularMora") {
+            constraints { parcelaId matches: /\d+/ }
+        }
+
+        // Rota de recibo
+        "/api/pagamentos/$id/recibo"(controller: "pagamento", action: "gerarRecibo") {
+            constraints { id matches: /\d+/ }
+        }
+
+        // Rota com ID (GET usa "mostrar")
+        "/api/pagamentos/$id"(controller: "pagamento") {
+            action = [GET: "mostrar", PUT: "update", PATCH: "update", DELETE: "delete"]
+            constraints { id matches: /\d+/ }
+        }
+
+        // Rota sem ID (GET usa "index", POST usa "save")
+        "/api/pagamentos"(controller: "pagamento") {
             action = [GET: "index", POST: "save"]
         }
 
