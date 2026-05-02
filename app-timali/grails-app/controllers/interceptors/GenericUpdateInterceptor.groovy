@@ -16,11 +16,6 @@ class GenericUpdateInterceptor implements Interceptor {
         match(uri: '/api/**')
     }
 
-    /**
-     * Mapeamento de nomes de recursos (URL) para nomes de entidades (Classe)
-     * Chave: nome do recurso na URL (plural/camelCase)
-     * Valor: nome da classe de domínio (singular/PascalCase)
-     */
     static final Map<String, String> RESOURCE_TO_ENTITY = [
             'definicoesCredito': 'DefinicaoCredito',
             'creditos': 'Credito',
@@ -28,10 +23,17 @@ class GenericUpdateInterceptor implements Interceptor {
             'entidades': 'Entidade',
             'taxas': 'Taxa',
             'feriados': 'Feriado',
-            'produtos': 'Produto'
+            'produtos': 'Produto',
+            'settings': 'Settings'
     ]
 
     boolean before() {
+        // Ignorar rotas especiais
+        def uri = request.requestURI ?: ''
+        if (uri.contains('/api/login') || uri.contains('/api/logout')) {
+            return true
+        }
+
         if (request.method in ['PUT', 'PATCH']) {
             println ""
             println "▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓"
@@ -48,8 +50,6 @@ class GenericUpdateInterceptor implements Interceptor {
 
             if (id && request.JSON) {
                 try {
-                    def uri = request.requestURI ?: request.servletPath
-
                     if (!uri) {
                         println "⚠️ URI não disponível"
                         render status: 400, text: 'URI não disponível'
@@ -65,13 +65,12 @@ class GenericUpdateInterceptor implements Interceptor {
                         def entityName = RESOURCE_TO_ENTITY[resourceName]
 
                         if (!entityName) {
-                            // 2. Fallback: tenta singularizar (remove 's', 'es', 'res')
+                            // 2. Fallback: tenta singularizar
                             entityName = singularize(resourceName).capitalize()
                         }
 
                         println ">>> Recurso: ${resourceName}"
                         println ">>> Entidade: ${entityName}"
-                        println ">>> Chamando GenericUpdateService.update(${entityName}, ${id}, ...)"
 
                         def updatedEntity = genericUpdateService.update(entityName, id, request.JSON)
 
@@ -108,42 +107,25 @@ class GenericUpdateInterceptor implements Interceptor {
         return true
     }
 
-    /**
-     * Tenta converter um nome de recurso plural para singular
-     * Ex: definicoesCredito -> DefinicaoCredito
-     *     creditos -> Credito
-     *     entidades -> Entidade
-     *     taxas -> Taxa
-     *     feriados -> Feriado
-     */
     private String singularize(String plural) {
-        // Se já não termina com 's', retorna como está
         if (!plural.endsWith('s')) {
             return plural
         }
-
-        // Remove terminações comuns de plural
         if (plural.endsWith('oes')) {
-            // "definicoes" -> "definicao"
             return plural[0..-4] + 'ao'
         }
         if (plural.endsWith('aes')) {
-            // "taxas" não chega aqui, é tratado pelo mapeamento
             return plural[0..-4] + 'ao'
         }
         if (plural.endsWith('res')) {
-            // "entidades" não chega aqui, mas por segurança
             return plural[0..-4]
         }
         if (plural.endsWith('es')) {
-            // "creditos" -> "Credito"
             return plural[0..-3]
         }
         if (plural.endsWith('s')) {
-            // Caso geral: remove o 's' final
             return plural[0..-2]
         }
-
         return plural
     }
 

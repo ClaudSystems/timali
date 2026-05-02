@@ -6,6 +6,7 @@ import grails.converters.JSON
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
 
+
 class CreditoController {
 
     static responseFormats = ['json']
@@ -61,6 +62,149 @@ class CreditoController {
 
     // GET /api/creditos
     // CreditoController.groovy
+
+    // CreditoController.groovy
+
+    // CreditoController.groovy - relatorioPagamentos
+
+    // CreditoController.groovy
+
+/**
+ * Buscar recibos/pagamentos por período de PAGAMENTO
+ */
+    def recibosPorPeriodo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd")
+        sdf.setLenient(false)
+
+        Date dataInicio, dataFim
+
+        try {
+            dataInicio = params.dataInicio ? sdf.parse(params.dataInicio as String) : (new Date() - 30)
+            dataFim = params.dataFim ? sdf.parse(params.dataFim as String) : new Date()
+        } catch (Exception e) {
+            render status: 400, text: [message: "Formato de data inválido"] as JSON
+            return
+        }
+
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(dataFim)
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        Date dataFimAjustada = cal.getTime()
+
+        // Buscar parcelas PAGAS filtrando por DATA DE PAGAMENTO
+        def parcelas = Parcela.createCriteria().list {
+            eq('pago', true)
+            between('dataPagamento', dataInicio, dataFimAjustada)
+            order('dataPagamento', 'desc')
+            maxResults(500)
+        }
+
+        def resultado = parcelas.collect { parcela ->
+            [
+                    id: parcela.id,
+                    numero: parcela.numero,
+                    dataPagamento: parcela.dataPagamento,
+                    dataVencimento: parcela.dataVencimento,
+                    valorParcela: parcela.valorParcela,
+                    valorPago: parcela.valorPago,
+                    formaPagamento: parcela.formaPagamento,
+                    comprovativo: parcela.comprovativo,
+                    pagoNoPrazo: parcela.pagoNoPrazo,
+                    creditoId: parcela.credito?.id,
+                    creditoNumero: parcela.credito?.numero,
+                    cliente: parcela.credito?.entidade?.nome,
+                    nuit: parcela.credito?.entidade?.nuit,
+                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
+                    documento: parcela.credito?.entidade?.numeroDeIdentificao,
+                    saldoDevedor: parcela.credito?.totalEmDivida
+            ]
+        }
+
+        render(resultado as JSON)
+    }
+
+    def relatorioPagamentos() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd")
+        SimpleDateFormat sdfDisplay = new SimpleDateFormat("dd/MM/yyyy")
+        SimpleDateFormat sdfDateTime = new SimpleDateFormat("dd/MM/yyyy HH:mm")
+        sdf.setLenient(false)
+
+        Date dataInicio, dataFim
+
+        try {
+            dataInicio = params.dataInicio ? sdf.parse(params.dataInicio as String) : (new Date() - 30)
+            dataFim = params.dataFim ? sdf.parse(params.dataFim as String) : new Date()
+        } catch (Exception e) {
+            render status: 400, text: [message: "Formato de data inválido"] as JSON
+            return
+        }
+
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(dataFim)
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        Date dataFimAjustada = cal.getTime()
+
+        def parcelas = Parcela.createCriteria().list {
+            between('dataVencimento', dataInicio, dataFimAjustada)
+            order('dataVencimento', 'asc')
+        }
+
+        // CORRIGIDO: Converter Timestamp para Date antes de formatar
+        def resultado = parcelas.collect { parcela ->
+            // Função segura para formatar data
+            def formatarData = { java.util.Date d, String formato ->
+                if (!d) return ""
+                try {
+                    // Converter para java.util.Date se for Timestamp
+                    Date date = d instanceof java.sql.Timestamp ? new Date(d.time) : d
+                    return new SimpleDateFormat(formato).format(date)
+                } catch (Exception ex) {
+                    return d.toString()
+                }
+            }
+
+            [
+                    id: parcela.id,
+                    numeroParcela: parcela.numero,
+                    dataVencimento: formatarData(parcela.dataVencimento, "dd/MM/yyyy"),
+                    dataPagamento: formatarData(parcela.dataPagamento, "dd/MM/yyyy HH:mm"),
+                    valorParcela: parcela.valorParcela,
+                    valorPago: parcela.valorPago ?: 0,
+                    pago: parcela.pago,
+                    formaPagamento: parcela.formaPagamento,
+                    comprovativo: parcela.comprovativo,
+                    pagoNoPrazo: parcela.pagoNoPrazo,
+                    clienteNome: parcela.credito?.entidade?.nome,
+                    clienteTelefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
+                    clienteNuit: parcela.credito?.entidade?.nuit,
+                    creditoNumero: parcela.credito?.numero,
+                    saldoDevedor: parcela.credito?.totalEmDivida
+            ]
+        }
+
+        BigDecimal totalPago = resultado.sum { it.valorPago ?: 0 }
+
+        def totalPorForma = [:]
+        resultado.groupBy { it.formaPagamento ?: 'OUTRO' }.each { forma, lista ->
+            totalPorForma[forma] = [
+                    quantidade: lista.size(),
+                    valorTotal: lista.sum { it.valorPago ?: 0 }
+            ]
+        }
+
+        def resposta = [
+                periodo: [
+                        dataInicio: sdfDisplay.format(dataInicio),
+                        dataFim: sdfDisplay.format(dataFim)
+                ],
+                totalParcelas: resultado.size(),
+                totalPago: totalPago,
+                totalPorForma: totalPorForma,
+                parcelas: resultado
+        ]
+
+        render(resposta as JSON)
+    }
 
     def buscarPagamentosPorCredito(Long creditoId) {
         def credito = Credito.get(creditoId)
@@ -129,40 +273,123 @@ class CreditoController {
 // Buscar pagamentos por período
     // CreditoController.groovy
 
-    def pagamentosPorPeriodo() {
-        try {
-            def sdf = new SimpleDateFormat("yyyy-MM-dd")
-            Date dataInicio = params.dataInicio ? sdf.parse(params.dataInicio as String) : new Date() - 30
-            Date dataFim = params.dataFim ? sdf.parse(params.dataFim as String) : new Date()
-            
-            // Garantir que o dataFim vá até o último milissegundo do dia
-            Date dataFimAjustada = dataFim.updated(hour: 23, minute: 59, second: 59)
+    // CreditoController.groovy
 
-            def pagamentos = Parcela.createCriteria().list {
-                eq('pago', true)
-                between('dataPagamento', dataInicio, dataFimAjustada)
-                order('dataPagamento', 'desc')
-                maxResults(200)
+    // CreditoController.groovy
+
+    def parcelasVencidasNoPeriodo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd")
+        sdf.setLenient(false)
+
+        Date dataInicio
+        Date dataFim
+
+        try {
+            if (params.dataInicio) {
+                dataInicio = sdf.parse(params.dataInicio as String)
+            } else {
+                Calendar cal = Calendar.getInstance()
+                cal.add(Calendar.DAY_OF_MONTH, -30)
+                dataInicio = cal.getTime()
             }
-            // ... resto do collect
+
+            if (params.dataFim) {
+                dataFim = sdf.parse(params.dataFim as String)
+            } else {
+                dataFim = new Date()
+            }
         } catch (Exception e) {
             render status: 400, text: [message: "Formato de data inválido. Use yyyy-MM-dd"] as JSON
             return
         }
 
-        def resultado = pagamentos.collect { parcela ->
+        // Ajustar dataFim para incluir o dia inteiro
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(dataFim)
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        Date dataFimAjustada = cal.getTime()
+
+        // Buscar parcelas com VENCIMENTO no período
+        def parcelas = Parcela.createCriteria().list {
+            between('dataVencimento', dataInicio, dataFimAjustada)
+            order('dataVencimento', 'asc')
+            maxResults(500)
+        }
+
+        def resultado = parcelas.collect { parcela ->
             [
                     id: parcela.id,
                     numero: parcela.numero,
+                    dataVencimento: parcela.dataVencimento,
+                    dataPagamento: parcela.dataPagamento,
+                    valorParcela: parcela.valorParcela,
+                    valorPago: parcela.valorPago ?: 0,
+                    pago: parcela.pago,
+                    pagoNoPrazo: parcela.pagoNoPrazo,
+                    emMora: parcela.emMora,
+                    status: parcela.status?.toString(),
+                    formaPagamento: parcela.formaPagamento,
+                    comprovativo: parcela.comprovativo,
+                    diasAtraso: parcela.diasAtraso,
+                    creditoId: parcela.credito?.id,
+                    creditoNumero: parcela.credito?.numero,
+                    cliente: parcela.credito?.entidade?.nome,
+                    nuit: parcela.credito?.entidade?.nuit,
+                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
+                    documento: parcela.credito?.entidade?.numeroDeIdentificao,
+                    saldoDevedor: parcela.credito?.totalEmDivida,
+                    valorTotalCredito: parcela.credito?.valorTotal
+            ]
+        }
+
+        render(resultado as JSON)
+    }
+
+
+    def pagamentosPorPeriodo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd")
+        sdf.setLenient(false)
+
+        Date dataInicio
+        Date dataFim
+
+        try {
+            dataInicio = params.dataInicio ? sdf.parse(params.dataInicio as String) : (new Date() - 30)
+            dataFim = params.dataFim ? sdf.parse(params.dataFim as String) : new Date()
+        } catch (Exception e) {
+            render status: 400, text: [message: "Formato de data inválido"] as JSON
+            return
+        }
+
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(dataFim)
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+        Date dataFimAjustada = cal.getTime()
+
+        // Buscar parcelas com VENCIMENTO no período que já foram PAGAS
+        def parcelas = Parcela.createCriteria().list {
+            eq('pago', true)
+            between('dataVencimento', dataInicio, dataFimAjustada)
+            order('dataVencimento', 'asc')
+            maxResults(500)
+        }
+
+        def resultado = parcelas.collect { parcela ->
+            [
+                    id: parcela.id,
+                    numero: parcela.numero,
+                    dataVencimento: parcela.dataVencimento,
                     dataPagamento: parcela.dataPagamento,
                     valorParcela: parcela.valorParcela,
                     valorPago: parcela.valorPago,
                     formaPagamento: parcela.formaPagamento,
                     comprovativo: parcela.comprovativo,
+                    pagoNoPrazo: parcela.pagoNoPrazo,
                     creditoId: parcela.credito?.id,
                     creditoNumero: parcela.credito?.numero,
                     cliente: parcela.credito?.entidade?.nome,
                     nuit: parcela.credito?.entidade?.nuit,
+                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
                     documento: parcela.credito?.entidade?.numeroDeIdentificao,
                     saldoDevedor: parcela.credito?.totalEmDivida
             ]
@@ -678,45 +905,124 @@ class CreditoController {
             return
         }
 
-        def parcelas = credito.parcelas?.sort { it.numero }?.collect { [
-                numero: it.numero,
-                dataVencimento: safeDate(it.dataVencimento),
-                valorParcela: it.valorParcela,
-                valorAmortizacao: it.valorAmortizacao,
-                valorJuros: it.valorJuros,
-                valorMulta: it.valorMulta,
-                valorJurosDemora: it.valorJurosDemora,
-                valorPago: it.valorPago,
-                saldoDevedor: it.saldoDevedor,
-                pago: it.pago,
-                status: safeEnum(it.status)
-        ] } ?: []
+        // Recalcular totais
+        creditoService.recalcularTotais(credito)
 
-        render([
+        def entidade = credito.entidade
+        Integer numeroPrestacoes = credito.numeroDePrestacoes ?: 0
+        Integer prestacoesPagas = credito.parcelas?.count { it.pago } ?: 0
+        Integer prestacoesEmDia = numeroPrestacoes - prestacoesPagas
+
+        // Construir linhas do extrato
+        def linhas = []
+
+        // 1. Linha inicial - Concessão do crédito
+        linhas << [
+                data: safeDate(credito.dataEmissao),
+                descricao: "Concessão de Crédito Nº ${credito.numero}",
+                debito: 0.0,
+                credito: credito.valorConcedido ?: 0.0,
+                valorEmMora: 0.0,
+                jurosDeMora: 0.0,
+                diasDeMora: 0,
+                saldo: credito.valorTotal ?: 0.0
+        ]
+
+        // 2. Parcelas pagas (ordenadas)
+        def parcelasOrdenadas = credito.parcelas?.sort { it.numero }
+        parcelasOrdenadas?.each { parcela ->
+            if (parcela.pago) {
+                linhas << [
+                        data: safeDate(parcela.dataPagamento),
+                        descricao: "Pagamento da ${parcela.numero}ª Prestação - ${parcela.formaPagamento ?: 'DINHEIRO'}",
+                        debito: parcela.valorPago ?: 0.0,
+                        credito: 0.0,
+                        valorEmMora: parcela.emMora ? ((parcela.valorParcela ?: 0) - (parcela.valorPago ?: 0)) : 0.0,
+                        jurosDeMora: parcela.valorPagoJurosDemora ?: 0.0,
+                        diasDeMora: parcela.diasAtraso ?: 0,
+                        saldo: parcela.saldoDevedor ?: 0.0
+                ]
+            }
+        }
+
+        // 3. Parcelas pendentes (vencidas)
+        parcelasOrdenadas?.each { parcela ->
+            if (!parcela.pago && parcela.dataVencimento && parcela.dataVencimento < new Date()) {
+                linhas << [
+                        data: safeDate(parcela.dataVencimento),
+                        descricao: "${parcela.numero}ª Prestação VENCIDA",
+                        debito: 0.0,
+                        credito: 0.0,
+                        valorEmMora: parcela.valorParcela ?: 0.0,
+                        jurosDeMora: parcela.valorJurosDemora ?: 0.0,
+                        diasDeMora: parcela.diasAtraso ?: 0,
+                        saldo: parcela.saldoDevedor ?: 0.0
+                ]
+            }
+        }
+
+        // Totais
+        BigDecimal totalDebito = linhas.sum { (it.debito ?: 0) as BigDecimal } ?: 0
+        BigDecimal totalCredito = linhas.sum { (it.credito ?: 0) as BigDecimal } ?: 0
+        BigDecimal totalMoras = linhas.sum { (it.valorEmMora ?: 0) as BigDecimal } ?: 0
+        BigDecimal totalJurosDeMora = linhas.sum { (it.jurosDeMora ?: 0) as BigDecimal } ?: 0
+        BigDecimal totalEmMora = totalMoras + totalJurosDeMora
+
+        def resultado = [
                 credito: [
                         id: credito.id,
                         numero: credito.numero,
-                        entidade: credito.entidade?.nome,
                         valorConcedido: credito.valorConcedido,
                         valorTotal: credito.valorTotal,
+                        dataEmissao: safeDate(credito.dataEmissao),
+                        percentualDeJuros: credito.percentualDeJuros,
+                        percentualJurosDeDemora: credito.percentualJurosDeDemora,
+                        periodicidade: safeEnum(credito.periodicidade),
+                        formaDeCalculo: safeEnum(credito.formaDeCalculo),
+                        numeroDePrestacoes: numeroPrestacoes,
+                        numeroDePrestacoesEmDia: prestacoesEmDia,
                         status: safeEnum(credito.status),
-                        dataEmissao: safeDate(credito.dataEmissao)
+                        totalPago: credito.totalPago,
+                        totalEmDivida: credito.totalEmDivida,
+                        criadoPor: credito.criadoPor
                 ],
-                parcelas: parcelas
-        ] as JSON)
+                cliente: [
+                        id: entidade?.id,
+                        codigo: entidade?.codigo,
+                        nome: entidade?.nome,
+                        nuit: entidade?.nuit,
+                        telefone: entidade?.telefone ?: entidade?.telefone1 ?: '',
+                        documento: entidade?.numeroDeIdentificao ?: '',
+                        tipoDocumento: entidade?.tipoDeIdentificao ?: 'BI'
+                ],
+                linhas: linhas,
+                totais: [
+                        totalDebito: totalDebito,
+                        totalCredito: totalCredito,
+                        totalMoras: totalMoras,
+                        totalJurosDeMora: totalJurosDeMora,
+                        totalEmMora: totalEmMora
+                ],
+                parcelas: parcelasOrdenadas?.collect { [
+                        numero: it.numero,
+                        dataVencimento: safeDate(it.dataVencimento),
+                        valorParcela: it.valorParcela,
+                        valorAmortizacao: it.valorAmortizacao,
+                        valorJuros: it.valorJuros,
+                        valorPago: it.valorPago,
+                        saldoDevedor: it.saldoDevedor,
+                        pago: it.pago,
+                        status: safeEnum(it.status)
+                ] } ?: []
+        ]
+
+        render(resultado as JSON)
     }
 
 
+// CreditoController.groovy - método registrarPagamento
 
     def registrarPagamento(Long creditoId, Long parcelaId) {
-        log.info("=" * 50)
-        log.info("REGISTRAR PAGAMENTO")
-        log.info("Crédito ID: ${creditoId}")
-        log.info("Parcela ID: ${parcelaId}")
-        log.info("Body: ${request.JSON}")
-        log.info("=" * 50)
-
-        // CORRIGIDO: Usar credito em vez de creditoId
         def credito = Credito.get(creditoId)
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
@@ -735,12 +1041,32 @@ class CreditoController {
         }
 
         def data = request.JSON
+
+        // NOVO: Verificar se tem data de pagamento personalizada
+        Date dataPagamento = new Date()
+        if (data.dataPagamento) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
+                dataPagamento = sdf.parse(data.dataPagamento as String)
+            } catch (Exception e) {
+                try {
+                    // Tentar formato sem timezone
+                    SimpleDateFormat sdf2 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS")
+                    dataPagamento = sdf2.parse(data.dataPagamento as String)
+                } catch (Exception ex) {
+                    log.warn("Formato de data inválido: ${data.dataPagamento}, usando data atual")
+                }
+            }
+        }
+
         try {
             creditoService.registrarPagamento(
                     parcela,
                     data.valorPago as BigDecimal,
                     data.formaPagamento as String,
-                    data.comprovativo as String
+                    data.comprovativo as String,
+                    dataPagamento  // NOVO: Passar data de pagamento
             )
             render status: 200, text: [message: "Pagamento registrado com sucesso"] as JSON
         } catch (Exception e) {
@@ -748,6 +1074,7 @@ class CreditoController {
             render status: 500, text: [message: "Erro ao registrar pagamento: ${e.message}"] as JSON
         }
     }
+
 
     def recalcularTodos() {
         try {

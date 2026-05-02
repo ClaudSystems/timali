@@ -22,7 +22,7 @@ export const SettingsProvider = ({ children }) => {
 
   const loadSettings = async () => {
     try {
-      const response = await axios.get('/api/settings/1');
+      const response = await axios.get('/api/settings');
       setSettings(response.data);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -35,7 +35,7 @@ export const SettingsProvider = ({ children }) => {
 
   const updateSettings = async (newSettings) => {
     try {
-      const response = await axios.put('/api/settings/1', newSettings);
+      const response = await axios.put('/api/settings', newSettings);
       setSettings(response.data);
       return response.data;
     } catch (error) {

@@ -6,13 +6,9 @@ import { Layout, Menu } from 'antd';
 import {
   DashboardOutlined,
   TeamOutlined,
-  PercentageOutlined,
-  CalendarOutlined,
-  FileTextOutlined,
   CreditCardOutlined,
-  SettingOutlined,
   WalletOutlined,
-  HistoryOutlined,        // ← ADICIONAR ESTA LINHA
+  SettingOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
 
@@ -44,29 +40,27 @@ const Sidebar = () => {
       label: 'Caixa',
     },
     {
-      key: '/recibos',
-      icon: <HistoryOutlined />,
-      label: 'Recibos',
-    },
-    {
-      key: '/taxas',
-      icon: <PercentageOutlined />,
-      label: 'Taxas',
-    },
-    {
-      key: '/feriados',
-      icon: <CalendarOutlined />,
-      label: 'Feriados',
-    },
-    {
-      key: '/definicoesCredito',
-      icon: <FileTextOutlined />,
-      label: 'Definições',
-    },
-    {
-      key: '/settings',
+      key: 'configuracoes',
       icon: <SettingOutlined />,
       label: 'Configurações',
+      children: [
+        {
+          key: '/taxas',
+          label: 'Taxas',
+        },
+        {
+          key: '/feriados',
+          label: 'Feriados',
+        },
+        {
+          key: '/definicoesCredito',
+          label: 'Definições de Crédito',
+        },
+        {
+          key: '/settings',
+          label: 'Geral',
+        },
+      ],
     },
   ];
 
@@ -101,6 +95,7 @@ const Sidebar = () => {
         theme="dark"
         mode="inline"
         selectedKeys={[location.pathname]}
+        defaultOpenKeys={['configuracoes']}
         items={menuItems}
         onClick={handleMenuClick}
       />

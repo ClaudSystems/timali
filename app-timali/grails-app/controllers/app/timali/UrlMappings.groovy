@@ -23,7 +23,8 @@ class UrlMappings {
         // ============================================================
         // API - CRÉDITOS
         // ============================================================
-
+        "/api/creditos/recibosPorPeriodo"(controller: "credito", action: "recibosPorPeriodo")
+        "/api/creditos/relatorioPagamentos"(controller: "credito", action: "relatorioPagamentos")
         // Rotas específicas PRIMEIRO
         // Adicione ANTES das outras rotas de crédito
 // Na seção de créditos:
@@ -115,6 +116,7 @@ class UrlMappings {
         // API - SETTINGS (NOVO)
         // ============================================================
         "/api/settings"(resources: 'settings')
+
 
         // ============================================================
         // ROTAS DO REACT (SPA)

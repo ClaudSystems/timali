@@ -62,6 +62,12 @@ const creditoService = {
     });
   },
 
+  // src/services/creditoService.js
+
+  // Recibos por período de PAGAMENTO
+  recibosPorPeriodo: (dataInicio, dataFim) =>
+      request(`/creditos/recibosPorPeriodo?dataInicio=${dataInicio}&dataFim=${dataFim}`),
+
   listarDefinicoes: () => request('/definicoesCredito'),
 
   listar: (params = {}) => {
@@ -94,6 +100,10 @@ const creditoService = {
           const url = queryString ? `/creditos/historicoPagamentos?${queryString}` : '/creditos/historicoPagamentos';
           return request(url);
       },
+      // src/services/creditoService.js
+
+      relatorioPagamentos: (dataInicio, dataFim) =>
+          request(`/creditos/relatorioPagamentos?dataInicio=${dataInicio}&dataFim=${dataFim}`),
 
       // Pagamentos por período
       pagamentosPorPeriodo: (dataInicio, dataFim) =>

@@ -1,10 +1,10 @@
+// src/contexts/SettingsContext.jsx
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-// Criar o contexto
 const SettingsContext = createContext(null);
 
-// Hook personalizado para usar o contexto
 export const useSettings = () => {
   const context = useContext(SettingsContext);
   if (!context) {
@@ -13,7 +13,6 @@ export const useSettings = () => {
   return context;
 };
 
-// Provider component
 export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,11 +23,17 @@ export const SettingsProvider = ({ children }) => {
 
   const loadSettings = async () => {
     try {
-      const response = await axios.get('/api/settings/1');
-      setSettings(response.data);
+      // Buscar lista de settings e pegar o primeiro
+      const response = await axios.get('http://localhost:8080/api/settings');
+      const settingsList = response.data;
+
+      if (Array.isArray(settingsList) && settingsList.length > 0) {
+        setSettings(settingsList[0]);
+      } else if (settingsList && settingsList.id) {
+        setSettings(settingsList);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // Definir valores padrão em caso de erro
       setSettings({
         nome: 'default',
         permitirDesembolsoComDivida: false,
@@ -36,11 +41,8 @@ export const SettingsProvider = ({ children }) => {
         ignorarValorPagoNoPrazo: false,
         pagarEmSequencia: false,
         alterarDataPagamento: false,
-        conta1: '',
-        conta2: '',
-        conta3: '',
-        rodaPePlanoDePagamento: '',
-        nbPlanoDePagamento: '',
+        conta1: '', conta2: '', conta3: '',
+        rodaPePlanoDePagamento: '', nbPlanoDePagamento: '',
       });
     } finally {
       setLoading(false);
@@ -48,14 +50,27 @@ export const SettingsProvider = ({ children }) => {
   };
 
   const updateSettings = async (newSettings) => {
-    try {
-      const response = await axios.put('/api/settings/1', newSettings);
-      setSettings(response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error updating settings:', error);
-      throw error;
-    }
+      try {
+        // Pegar o ID - se não tiver settings.id, buscar primeiro
+        let id = settings?.id;
+
+        if (!id) {
+          // Buscar o ID correto
+          const resp = await axios.get('/api/settings');
+          const list = resp.data;
+          const first = Array.isArray(list) ? list[0] : list;
+          id = first?.id;
+          if (!id) throw new Error('ID dos settings não encontrado');
+        }
+
+        console.log('🔧 Salvando settings com ID:', id);
+        const response = await axios.put(`/api/settings/${id}`, newSettings);
+        setSettings(response.data);
+        return response.data;
+      } catch (error) {
+        console.error('Error updating settings:', error);
+        throw error;
+      }
   };
 
   const value = {
@@ -63,7 +78,6 @@ export const SettingsProvider = ({ children }) => {
     loading,
     updateSettings,
     refreshSettings: loadSettings,
-    // Helpers para acessar configurações específicas
     isPermitirDesembolsoComDivida: settings?.permitirDesembolsoComDivida || false,
     isPagamentosEmOrdem: settings?.pagamentosEmOrdem || false,
     isIgnorarValorPagoNoPrazo: settings?.ignorarValorPagoNoPrazo || false,

@@ -292,6 +292,55 @@ class CreditoService {
         return [atualizados: atualizados, comErro: comErro, total: todosCreditos.size()]
     }
 
+    // CreditoService.groovy - método registrarPagamento
+
+    @Transactional
+    def registrarPagamento(Parcela parcela, BigDecimal valorPago, String formaPagamento, String comprovativo, Date dataPagamento = null) {
+        if (!parcela) throw new IllegalArgumentException("Parcela não pode ser nula")
+        if (!valorPago || valorPago <= 0) throw new IllegalArgumentException("Valor pago deve ser maior que zero")
+
+        log.info("💰 Registrando pagamento - Parcela #${parcela.numero} - Valor: ${valorPago}")
+
+        if (parcela.pago) {
+            log.warn("Parcela #${parcela.numero} já está paga")
+            return
+        }
+
+        // NOVO: Usar data fornecida ou data atual
+        Date dataEfetiva = dataPagamento ?: new Date()
+
+        BigDecimal valorPagoAnterior = parcela.valorPago ?: 0.0
+        BigDecimal valorTotalPago = valorPagoAnterior + valorPago
+
+        parcela.valorPago = valorTotalPago
+        parcela.formaPagamento = formaPagamento
+        parcela.comprovativo = comprovativo
+
+        if (valorTotalPago >= parcela.valorParcela) {
+            parcela.valorPago = parcela.valorParcela
+            parcela.pago = true
+            parcela.dataPagamento = dataEfetiva  // NOVO: Usar data fornecida
+            parcela.status = StatusParcela.PAGA
+
+            if (parcela.dataPagamento <= parcela.dataVencimento) {
+                parcela.pagoNoPrazo = true
+            }
+
+            log.info("✅ Parcela #${parcela.numero} QUITADA - Data: ${dataEfetiva.format('dd/MM/yyyy')}")
+        } else {
+            log.info("📝 Pagamento parcial - Parcela #${parcela.numero}: ${valorTotalPago}/${parcela.valorParcela}")
+        }
+
+        if (!parcela.save(flush: true, failOnError: true)) {
+            log.error("Erro ao salvar parcela: ${parcela.errors}")
+            throw new RuntimeException("Erro ao salvar parcela: ${parcela.errors}")
+        }
+
+        recalcularTotais(parcela.credito)
+
+        return parcela
+    }
+
     /**
      * Recalcula totais após gerar parcelas
      */
@@ -363,55 +412,5 @@ class CreditoService {
 /**
  * Registra pagamento de uma parcela (aceita pagamento parcial)
  */
-    @Transactional
-    def registrarPagamento(Parcela parcela, BigDecimal valorPago, String formaPagamento, String comprovativo) {
-        if (!parcela) throw new IllegalArgumentException("Parcela não pode ser nula")
-        if (!valorPago || valorPago <= 0) throw new IllegalArgumentException("Valor pago deve ser maior que zero")
 
-        log.info("💰 Registrando pagamento - Parcela #${parcela.numero} - Valor: ${valorPago}")
-
-        // Se a parcela já está paga, não faz nada
-        if (parcela.pago) {
-            log.warn("Parcela #${parcela.numero} já está paga")
-            return
-        }
-
-        // Acumular valor pago (permite pagamento parcial)
-        BigDecimal valorPagoAnterior = parcela.valorPago ?: 0.0
-        BigDecimal valorTotalPago = valorPagoAnterior + valorPago
-
-        parcela.valorPago = valorTotalPago
-        parcela.formaPagamento = formaPagamento
-        parcela.comprovativo = comprovativo
-
-        // Verificar se a parcela foi totalmente quitada
-        if (valorTotalPago >= parcela.valorParcela) {
-            parcela.valorPago = parcela.valorParcela // Não deixa ultrapassar
-            parcela.pago = true
-            parcela.dataPagamento = new Date()
-            parcela.status = StatusParcela.PAGA
-
-            if (parcela.dataPagamento <= parcela.dataVencimento) {
-                parcela.pagoNoPrazo = true
-            }
-
-            log.info("✅ Parcela #${parcela.numero} QUITADA")
-        } else {
-            // Pagamento parcial - a parcela continua pendente
-            log.info("📝 Pagamento parcial - Parcela #${parcela.numero}: ${valorTotalPago}/${parcela.valorParcela}")
-        }
-
-        // Salvar parcela
-        if (!parcela.save(flush: true, failOnError: true)) {
-            log.error("Erro ao salvar parcela: ${parcela.errors}")
-            throw new RuntimeException("Erro ao salvar parcela: ${parcela.errors}")
-        }
-
-        // Recalcular totais do crédito
-        recalcularTotais(parcela.credito)
-
-        log.info("✅ Pagamento registrado - Parcela #${parcela.numero} - Crédito #${parcela.credito.numero}")
-
-        return parcela
-    }
 }

@@ -3,11 +3,37 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import moment from 'moment';
 
+// Cache dos settings
+let cachedSettings = null;
+
+const getSettings = async () => {
+  if (cachedSettings) return cachedSettings;
+
+  try {
+    const token = localStorage.getItem('timali_token');
+    const response = await fetch('/api/settings', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    const data = await response.json();
+    cachedSettings = Array.isArray(data) ? data[0] : data;
+    return cachedSettings;
+  } catch (e) {
+    console.warn('Erro ao carregar settings:', e);
+    return {};
+  }
+};
+
 const pdfPlanoPagamentoService = {
-  gerarPlanoPagamento(credito) {
+  async gerarPlanoPagamento(credito) {
     console.log('📄 [PDF] Iniciando geração...');
     console.log('📄 [PDF] Crédito:', credito?.numero);
     console.log('📄 [PDF] Parcelas recebidas:', credito?.parcelas?.length);
+
+    // Buscar settings
+    const settings = await getSettings();
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pw = doc.internal.pageSize.getWidth();
@@ -155,31 +181,100 @@ const pdfPlanoPagamentoService = {
         },
       });
 
-      y = doc.lastAutoTable.finalY + 10;
+      y = doc.lastAutoTable.finalY + 8;
     }
 
     // ============================================================
-    // ASSINATURAS
+    // CONTAS BANCÁRIAS (DOS SETTINGS)
     // ============================================================
-    if (y < 245) {
-      doc.setFontSize(8).setFont('helvetica', 'bold');
-      doc.text('ASSINATURAS', m, y);
-      y += 6;
-      const cw = (pw - m * 2) / 3;
-      doc.setFont('helvetica', 'normal').setFontSize(7);
-      doc.text('CLIENTE', m, y);
-      doc.text('GERENTE', m + cw, y);
-      doc.text('GESTOR DE CREDITO', m + cw * 2, y);
-      y += 3;
-      doc.line(m, y, m + cw - 8, y);
-      doc.line(m + cw, y, m + cw * 2 - 8, y);
-      doc.line(m + cw * 2, y, pw - m, y);
-      y += 10;
+    const contas = [];
+    if (settings?.conta1) contas.push('' + settings.conta1);
+    if (settings?.conta2) contas.push('' + settings.conta2);
+    if (settings?.conta3) contas.push('' + settings.conta3);
 
-      doc.setFontSize(6.5).setFont('helvetica', 'italic');
+    if (contas.length > 0 && y < 250) {
+      doc.setFontSize(7).setFont('helvetica', 'italic');
       doc.text('Pagamento nos balcoes ou depositar nas contas:', m, y); y += 4;
       doc.setFont('helvetica', 'normal');
-      doc.text('BCI: 1234567890  |  BIM: 0987654321  |  MPESA: 859876543', m, y);
+      doc.text(contas.join('  |  '), m, y);
+      y += 8;
+    }
+
+    // ============================================================
+    // ASSINATURAS (ANTES DO RODAPÉ)
+    // ============================================================
+    // ============================================================
+    // ASSINATURAS
+    // ============================================================
+    if (y < 240) {
+        y += 3;
+        doc.setFontSize(8).setFont('helvetica', 'bold');
+        doc.text('ASSINATURAS', m, y);
+        y += 8;
+
+        const cw = (pw - m * 2) / 3;
+        doc.setFont('helvetica', 'normal').setFontSize(7);
+
+        // CLIENTE
+        doc.text('CLIENTE', m + (cw / 2) - 10, y, { align: 'center' });
+
+        // GERENTE
+        doc.text('GERENTE', m + cw + (cw / 2) - 8, y, { align: 'center' });
+
+        // GESTOR DE CREDITO
+        doc.text('GESTOR DE CREDITO', m + cw * 2 + (cw / 2) - 20, y, { align: 'center' });
+
+        y += 5;
+
+        // Parágrafos vazios (espaço em branco) em vez de linhas
+        doc.setFontSize(10);
+        doc.text('_______________________', m, y);
+        doc.text('_______________________', m + cw, y);
+        doc.text('_______________________', m + cw * 2, y);
+
+        y += 8;
+    }
+
+    // ============================================================
+    // RODAPÉ (DOS SETTINGS) - DEPOIS DAS ASSINATURAS
+    // ============================================================
+    if (y < 265) {
+      const rodaPe = settings?.rodaPePlanoDePagamento;
+      if (rodaPe) {
+        y += 2;
+        doc.setFontSize(6).setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+
+        const linhas = doc.splitTextToSize(rodaPe, pw - m * 2);
+        linhas.forEach(linha => {
+          if (y < 275) {
+            doc.text(linha, pw / 2, y, { align: 'center' });
+            y += 3.5;
+          }
+        });
+        doc.setTextColor(0, 0, 0);
+      }
+    }
+
+    // ============================================================
+    // NB PLANO DE PAGAMENTO (DOS SETTINGS) - DEPOIS DO RODAPÉ
+    // ============================================================
+    if (y < 275) {
+      const nb = settings?.nbPlanoDePagamento;
+      if (nb) {
+        y += 2;
+        doc.setFontSize(5.5).setFont('helvetica', 'italic');
+        doc.setTextColor(130, 130, 130);
+
+        const linhasNb = doc.splitTextToSize(nb, pw - m * 2);
+        linhasNb.forEach(linha => {
+          if (y < 282) {
+            doc.text(linha, pw / 2, y, { align: 'center' });
+            y += 3;
+          }
+        });
+        doc.setTextColor(0, 0, 0);
+      }
     }
 
     // ============================================================

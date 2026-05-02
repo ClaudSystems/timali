@@ -172,7 +172,8 @@ class GenericUpdateService {
                 'Feriado': 'feriados',
                 'Produto': 'produtos',
                 'AuthUser': 'auth_user',
-                'AuthRole': 'auth_role'
+                'AuthRole': 'auth_role',
+                'Settings': 'settings'  // ← ADICIONAR ESTA LINHA
         ]
 
         if (tableMapping.containsKey(entityName)) {
