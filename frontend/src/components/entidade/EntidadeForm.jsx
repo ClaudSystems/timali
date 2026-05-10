@@ -1,344 +1,354 @@
+// frontend/src/components/entidade/EntidadeForm.jsx
 import React, { useState, useEffect } from 'react';
-import './EntidadeForm.css';
+import {
+  Form, Input, Select, DatePicker, Button, Space, Row, Col, Divider,
+  Switch, Card, Typography, message, Alert, Spin
+} from 'antd';
+import {
+  SaveOutlined, CloseOutlined, UserOutlined, IdcardOutlined,
+  PhoneOutlined, FileTextOutlined
+} from '@ant-design/icons';
+import moment from 'moment';
+
+const { Title, Text } = Typography;
+const { Option } = Select;
+const { TextArea } = Input;
 
 const EntidadeForm = ({ entidade, onSubmit, onCancel }) => {
-    const [formData, setFormData] = useState({
-        nome: '',
-        tipoDePessoa: 'CLIENTE',
-        ativo: true,
-        classificacao: 'NAO_CLASSIFICADO',
-        dataDeEmissao: '',
-        dataDeValidade: '',
-        dataDeNascimento: '',
-        email: '',
-        estadoCivil: '',
-        genero: '',
-        localDeTrabalho: '',
-        nacionalidade: '',
-        arquivoDeIdentificao: '',
-        nuit: '',
-        numeroDeIdentificao: '',
-        profissao: '',
-        residencia: '',
-        telefone: '',
-        telefone1: '',
-        telefone2: '',
-        tipoDeIdentificao: ''
-    });
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [carregandoUsuarios, setCarregandoUsuarios] = useState(false);
 
-    const [errors, setErrors] = useState({});
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
 
-    useEffect(() => {
-        if (entidade) {
-            const formatDate = (date) => {
-                if (!date) return '';
-                const d = new Date(date);
-                return d.toISOString().split('T')[0];
-            };
+  useEffect(() => {
+    if (entidade?.id) {
+      console.log('📋 Carregando entidade:', entidade.nome);
 
-            const getValue = (obj, field, defaultValue = '') => {
-                if (!obj) return defaultValue;
-                const val = obj[field];
-                if (val === null || val === undefined) return defaultValue;
-                if (typeof val === 'object' && val.name) return val.name;
-                return val;
-            };
+      form.setFieldsValue({
+        nome: entidade.nome || '',
+        tipoDePessoa: entidade.tipoDePessoa || 'CLIENTE',
+        classificacao: entidade.classificacao || undefined,
+        genero: entidade.genero || undefined,
+        estadoCivil: entidade.estadoCivil || undefined,
+        tipoDeIdentificao: entidade.tipoDeIdentificao || undefined,
+        email: entidade.email || undefined,
+        telefone: entidade.telefone || undefined,
+        telefone1: entidade.telefone1 || undefined,
+        telefone2: entidade.telefone2 || undefined,
+        nacionalidade: entidade.nacionalidade || undefined,
+        profissao: entidade.profissao || undefined,
+        localDeTrabalho: entidade.localDeTrabalho || undefined,
+        residencia: entidade.residencia || undefined,
+        nuit: entidade.nuit || undefined,
+        numeroDeIdentificao: entidade.numeroDeIdentificao || undefined,
+        arquivoDeIdentificao: entidade.arquivoDeIdentificao || undefined,
+        dataDeEmissao: entidade.dataDeEmissao ? moment(entidade.dataDeEmissao) : null,
+        dataDeValidade: entidade.dataDeValidade ? moment(entidade.dataDeValidade) : null,
+        dataDeNascimento: entidade.dataDeNascimento ? moment(entidade.dataDeNascimento) : null,
+        ativo: entidade.ativo ?? true,
+        emDivida: entidade.emDivida ?? false,
+        usuarioId: entidade.usuario?.id || undefined,
+      });
+    } else {
+      form.resetFields();
+    }
+  }, [entidade, form]);
 
-            setFormData({
-                nome: entidade.nome || '',
-                tipoDePessoa: getValue(entidade, 'tipoDePessoa', 'CLIENTE'),
-                ativo: entidade.ativo !== undefined ? entidade.ativo : true,
-                classificacao: getValue(entidade, 'classificacao', 'NAO_CLASSIFICADO'),
-                dataDeEmissao: formatDate(entidade.dataDeEmissao),
-                dataDeValidade: formatDate(entidade.dataDeValidade),
-                dataDeNascimento: formatDate(entidade.dataDeNascimento),
-                email: entidade.email || '',
-                estadoCivil: getValue(entidade, 'estadoCivil'),
-                genero: getValue(entidade, 'genero'),
-                localDeTrabalho: entidade.localDeTrabalho || '',
-                nacionalidade: entidade.nacionalidade || '',
-                arquivoDeIdentificao: entidade.arquivoDeIdentificao || '',
-                nuit: entidade.nuit || '',
-                numeroDeIdentificao: entidade.numeroDeIdentificao || '',
-                profissao: entidade.profissao || '',
-                residencia: entidade.residencia || '',
-                telefone: entidade.telefone || '',
-                telefone1: entidade.telefone1 || '',
-                telefone2: entidade.telefone2 || '',
-                tipoDeIdentificao: getValue(entidade, 'tipoDeIdentificao')
-            });
-        } else {
-            setFormData({
-                nome: '',
-                tipoDePessoa: 'CLIENTE',
-                ativo: true,
-                classificacao: 'NAO_CLASSIFICADO',
-                dataDeEmissao: '',
-                dataDeValidade: '',
-                dataDeNascimento: '',
-                email: '',
-                estadoCivil: '',
-                genero: '',
-                localDeTrabalho: '',
-                nacionalidade: '',
-                arquivoDeIdentificao: '',
-                nuit: '',
-                numeroDeIdentificao: '',
-                profissao: '',
-                residencia: '',
-                telefone: '',
-                telefone1: '',
-                telefone2: '',
-                tipoDeIdentificao: ''
-            });
+  const carregarUsuarios = async () => {
+    setCarregandoUsuarios(true);
+    try {
+      const token = localStorage.getItem('timali_token');
+      const response = await fetch('http://localhost:8080/api/usuarios', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
         }
-    }, [entidade]);
+      });
+      if (response.ok) {
+        const dados = await response.json();
+        setUsuarios(Array.isArray(dados) ? dados : []);
+      }
+    } catch (err) {
+      console.error('Erro usuários:', err);
+      setUsuarios([
+        { id: 1, username: 'admin', nome: 'Administrador' },
+        { id: 2, username: 'gerente', nome: 'Gerente' },
+        { id: 3, username: 'caixa', nome: 'Caixa' },
+      ]);
+    } finally {
+      setCarregandoUsuarios(false);
+    }
+  };
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-        if (errors[name]) {
-            setErrors(prev => ({ ...prev, [name]: '' }));
-        }
+  const handleSubmit = (values) => {
+    console.log('📤 VALORES:', JSON.stringify(values, null, 2));
+
+    setLoading(true);
+
+    const dataToSubmit = {
+      nome: values.nome,
+      tipoDePessoa: values.tipoDePessoa,
+      classificacao: values.classificacao || null,
+      genero: values.genero || null,
+      estadoCivil: values.estadoCivil || null,
+      tipoDeIdentificao: values.tipoDeIdentificao || null,
+      email: values.email || null,
+      telefone: values.telefone || null,
+      telefone1: values.telefone1 || null,
+      telefone2: values.telefone2 || null,
+      nacionalidade: values.nacionalidade || null,
+      profissao: values.profissao || null,
+      localDeTrabalho: values.localDeTrabalho || null,
+      residencia: values.residencia || null,
+      nuit: values.nuit || null,
+      numeroDeIdentificao: values.numeroDeIdentificao || null,
+      arquivoDeIdentificao: values.arquivoDeIdentificao || null,
+      dataDeEmissao: values.dataDeEmissao?.format?.('YYYY-MM-DD') || null,
+      dataDeValidade: values.dataDeValidade?.format?.('YYYY-MM-DD') || null,
+      dataDeNascimento: values.dataDeNascimento?.format?.('YYYY-MM-DD') || null,
+      ativo: values.ativo ?? true,
+      emDivida: values.emDivida ?? false,
+      usuarioId: values.usuarioId || null,
+      id: entidade?.id,
+      version: entidade?.version || 0,
     };
 
-    const validateForm = () => {
-        const newErrors = {};
+    console.log('📤 ENVIANDO:', JSON.stringify(dataToSubmit, null, 2));
+    onSubmit(dataToSubmit);
+    setLoading(false);
+  };
 
-        if (!formData.nome?.trim()) {
-            newErrors.nome = 'Nome é obrigatório';
-        }
-        if (!formData.tipoDePessoa) {
-            newErrors.tipoDePessoa = 'Tipo de pessoa é obrigatório';
-        }
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-            newErrors.email = 'Email inválido';
-        }
+  return (
+    <div style={{ padding: '24px 0', maxHeight: '70vh', overflowY: 'auto' }}>
+      <Title level={4}>{entidade ? 'Editar Entidade' : 'Nova Entidade'}</Title>
 
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        if (validateForm()) {
-            const dataToSubmit = { ...formData };
-
-            ['dataDeEmissao', 'dataDeValidade', 'dataDeNascimento'].forEach(field => {
-                if (!dataToSubmit[field]) dataToSubmit[field] = null;
-            });
-
-            // IMPORTANTE: Incluir version se estiver editando
-            if (entidade) {
-                dataToSubmit.id = entidade.id;
-                dataToSubmit.version = entidade.version;
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        initialValues={{
+          ativo: true,
+          emDivida: false,
+          tipoDePessoa: 'CLIENTE'
+        }}
+      >
+        {/* Código (se editando) */}
+        {entidade?.codigo && (
+          <Alert
+            type="info"
+            showIcon={false}
+            style={{ marginBottom: 24 }}
+            title={
+              <Space>
+                <Text strong>Código:</Text>
+                <Text code style={{ fontSize: 16 }}>{entidade.codigo}</Text>
+                <Text type="secondary">(gerado automaticamente)</Text>
+              </Space>
             }
+          />
+        )}
 
-            dataToSubmit.emDivida = false;
+        {/* ===== INFORMAÇÕES BÁSICAS ===== */}
+        <Card title={<Space><UserOutlined /> Informações Básicas</Space>} style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="nome" label="Nome Completo" rules={[{ required: true, message: 'Nome obrigatório' }]}>
+                <Input prefix={<UserOutlined />} placeholder="Nome completo" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="tipoDePessoa" label="Tipo de Pessoa" rules={[{ required: true, message: 'Tipo obrigatório' }]}>
+                <Select placeholder="Selecione o tipo" size="large">
+                  <Option value="CLIENTE">Cliente</Option>
+                  <Option value="ASSINANTE">Assinante</Option>
+                  <Option value="FORNECEDOR">Fornecedor</Option>
+                  <Option value="FUNCIONARIO">Funcionário</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="classificacao" label="Classificação">
+                <Select placeholder="Selecione" allowClear>
+                  <Option value="NAO_CLASSIFICADO">Não Classificado</Option>
+                  <Option value="MAU">Mau</Option>
+                  <Option value="REGULAR">Regular</Option>
+                  <Option value="BOM">Bom</Option>
+                  <Option value="MUITO_BOM">Muito Bom</Option>
+                  <Option value="EXCELENTE">Excelente</Option>
+                  <Option value="VIP">VIP</Option>
+                  <Option value="PREMIUM">Premium</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="genero" label="Gênero">
+                <Select placeholder="Selecione" allowClear>
+                  <Option value="MASCULINO">Masculino</Option>
+                  <Option value="FEMININO">Feminino</Option>
+                  <Option value="OUTRO">Outro</Option>
+                  <Option value="PREFIRO_NAO_DIZER">Prefiro não dizer</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="estadoCivil" label="Estado Civil">
+                <Select placeholder="Selecione" allowClear>
+                  <Option value="SOLTEIRO">Solteiro(a)</Option>
+                  <Option value="CASADO">Casado(a)</Option>
+                  <Option value="DIVORCIADO">Divorciado(a)</Option>
+                  <Option value="VIUVO">Viúvo(a)</Option>
+                  <Option value="UNIAO_ESTAVEL">União Estável</Option>
+                  <Option value="SEPARADO">Separado(a)</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="dataDeNascimento" label="Data de Nascimento">
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="nacionalidade" label="Nacionalidade">
+                <Input placeholder="Ex: Moçambicana" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="profissao" label="Profissão">
+                <Input placeholder="Profissão" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="localDeTrabalho" label="Local de Trabalho">
+                <Input placeholder="Empresa ou local de trabalho" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
 
-            console.log('📤 Enviando formulário:', dataToSubmit);
-            onSubmit(dataToSubmit);
-        }
-    };
+        {/* ===== DOCUMENTAÇÃO ===== */}
+        <Card title={<Space><IdcardOutlined /> Documentação</Space>} style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="tipoDeIdentificao" label="Tipo de Identificação">
+                <Select placeholder="Selecione" allowClear>
+                  <Option value="BI">Bilhete de Identidade (BI)</Option>
+                  <Option value="PASSAPORTE">Passaporte</Option>
+                  <Option value="CEDULA">Cédula Pessoal</Option>
+                  <Option value="CARTAO_ELEITOR">Cartão de Eleitor</Option>
+                  <Option value="DIRE">DIRE</Option>
+                  <Option value="NUIT">NUIT</Option>
+                  <Option value="OUTRO">Outro</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="numeroDeIdentificao" label="Número de Identificação">
+                <Input placeholder="Número do documento" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="nuit" label="NUIT">
+                <Input placeholder="Número do NUIT" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="arquivoDeIdentificao" label="Arquivo">
+                <Input placeholder="Referência do arquivo" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="dataDeEmissao" label="Data de Emissão">
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="dataDeValidade" label="Data de Validade">
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
 
-    return (
-        <form onSubmit={handleSubmit} className="entidade-form">
-            <h3>{entidade ? 'Editar Entidade' : 'Nova Entidade'}</h3>
+        {/* ===== CONTATO ===== */}
+        <Card title={<Space><PhoneOutlined /> Contato</Space>} style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="telefone" label="Telefone Principal">
+                <Input prefix={<PhoneOutlined />} placeholder="+258 XX XXX XXXX" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="email" label="Email" rules={[{ type: 'email', message: 'Email inválido' }]}>
+                <Input placeholder="email@exemplo.com" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="telefone1" label="Telefone Alternativo 1">
+                <Input placeholder="+258 XX XXX XXXX" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="telefone2" label="Telefone Alternativo 2">
+                <Input placeholder="+258 XX XXX XXXX" />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="residencia" label="Residência">
+                <TextArea rows={2} placeholder="Endereço completo" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
 
-            {entidade && (
-                <div className="form-section codigo-section">
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label htmlFor="codigo">Código</label>
-                            <input
-                                type="text"
-                                id="codigo"
-                                value={entidade.codigo || '-'}
-                                disabled
-                                className="input-disabled"
-                            />
-                            <small>Código gerado automaticamente</small>
-                        </div>
-                    </div>
-                </div>
-            )}
+        {/* ===== STATUS ===== */}
+        <Card title={<Space><FileTextOutlined /> Status</Space>} style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <Form.Item name="ativo" label="Ativo" valuePropName="checked">
+                <Switch checkedChildren="Sim" unCheckedChildren="Não" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item name="emDivida" label="Em Dívida" valuePropName="checked">
+                <Switch checkedChildren="Sim" unCheckedChildren="Não" disabled />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item name="usuarioId" label="Usuário Gestor">
+                <Select
+                  placeholder="Selecione"
+                  allowClear
+                  showSearch
+                  optionFilterProp="children"
+                  filterOption={(input, option) =>
+                    (option?.children || '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  notFoundContent={carregandoUsuarios ? <Spin size="small" /> : "Nenhum"}
+                >
+                  {usuarios.map(u => (
+                    <Option key={u.id} value={u.id}>{u.nome || u.username}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
 
-            <div className="form-section">
-                <h4>Informações Básicas</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label htmlFor="nome">Nome *</label>
-                        <input
-                            type="text"
-                            id="nome"
-                            name="nome"
-                            value={formData.nome}
-                            onChange={handleChange}
-                            className={errors.nome ? 'error' : ''}
-                            placeholder="Nome completo"
-                        />
-                        {errors.nome && <span className="error-message">{errors.nome}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="tipoDePessoa">Tipo de Pessoa *</label>
-                        <select
-                            id="tipoDePessoa"
-                            name="tipoDePessoa"
-                            value={formData.tipoDePessoa}
-                            onChange={handleChange}
-                            className={errors.tipoDePessoa ? 'error' : ''}
-                        >
-                            <option value="CLIENTE">Cliente</option>
-                            <option value="ASSINANTE">Assinante</option>
-                            <option value="FORNECEDOR">Fornecedor</option>
-                            <option value="FUNCIONARIO">Funcionário</option>
-                        </select>
-                        {errors.tipoDePessoa && <span className="error-message">{errors.tipoDePessoa}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="classificacao">Classificação</label>
-                        <select
-                            id="classificacao"
-                            name="classificacao"
-                            value={formData.classificacao}
-                            onChange={handleChange}
-                        >
-                            <option value="NAO_CLASSIFICADO">Não Classificado</option>
-                            <option value="MAU">Mau</option>
-                            <option value="REGULAR">Regular</option>
-                            <option value="BOM">Bom</option>
-                            <option value="MUITO_BOM">Muito Bom</option>
-                            <option value="EXCELENTE">Excelente</option>
-                            <option value="VIP">VIP</option>
-                            <option value="PREMIUM">Premium</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div className="form-section">
-                <h4>Contato</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label htmlFor="email">Email</label>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            className={errors.email ? 'error' : ''}
-                            placeholder="email@exemplo.com"
-                        />
-                        {errors.email && <span className="error-message">{errors.email}</span>}
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="telefone">Telefone Principal</label>
-                        <input
-                            type="text"
-                            id="telefone"
-                            name="telefone"
-                            value={formData.telefone}
-                            onChange={handleChange}
-                            placeholder="(XX) XXXXX-XXXX"
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="telefone1">Telefone Secundário</label>
-                        <input
-                            type="text"
-                            id="telefone1"
-                            name="telefone1"
-                            value={formData.telefone1}
-                            onChange={handleChange}
-                            placeholder="(XX) XXXXX-XXXX"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            <div className="form-section">
-                <h4>Documentação</h4>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label htmlFor="tipoDeIdentificao">Tipo de Identificação</label>
-                        <select
-                            id="tipoDeIdentificao"
-                            name="tipoDeIdentificao"
-                            value={formData.tipoDeIdentificao}
-                            onChange={handleChange}
-                        >
-                            <option value="">Selecione...</option>
-                            <option value="BI">Bilhete de Identidade (BI)</option>
-                            <option value="PASSAPORTE">Passaporte</option>
-                            <option value="CEDULA">Cédula Pessoal</option>
-                            <option value="CARTAO_ELEITOR">Cartão de Eleitor</option>
-                            <option value="DIRE">DIRE</option>
-                            <option value="NUIT">NUIT</option>
-                            <option value="OUTRO">Outro</option>
-                        </select>
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="numeroDeIdentificao">Número de Identificação</label>
-                        <input
-                            type="text"
-                            id="numeroDeIdentificao"
-                            name="numeroDeIdentificao"
-                            value={formData.numeroDeIdentificao}
-                            onChange={handleChange}
-                            placeholder="Número do documento"
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="nuit">NUIT</label>
-                        <input
-                            type="text"
-                            id="nuit"
-                            name="nuit"
-                            value={formData.nuit}
-                            onChange={handleChange}
-                            placeholder="Número do NUIT"
-                        />
-                    </div>
-                </div>
-            </div>
-
-            <div className="form-section">
-                <h4>Status</h4>
-                <div className="form-row">
-                    <div className="form-group checkbox-group">
-                        <label>
-                            <input
-                                type="checkbox"
-                                name="ativo"
-                                checked={formData.ativo}
-                                onChange={handleChange}
-                            />
-                            Ativo
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div className="form-actions">
-                <button type="submit" className="btn-primary">
-                    {entidade ? 'Atualizar' : 'Salvar'}
-                </button>
-                <button type="button" onClick={onCancel} className="btn-secondary">
-                    Cancelar
-                </button>
-            </div>
-        </form>
-    );
+        {/* BOTÕES */}
+        <Divider />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onCancel} icon={<CloseOutlined />}>Cancelar</Button>
+          <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading} size="large">
+            {entidade ? 'Atualizar' : 'Salvar'}
+          </Button>
+        </div>
+      </Form>
+    </div>
+  );
 };
 
 export default EntidadeForm;

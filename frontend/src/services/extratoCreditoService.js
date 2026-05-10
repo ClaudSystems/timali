@@ -37,9 +37,7 @@ const extratoCreditoService = {
         const m = 10;
         let y = 5;
 
-        // ============================================================
         // CABEÇALHO - LOGO
-        // ============================================================
         try {
             doc.addImage(logoRecibo, 'PNG', pw / 2 - 35, y, 70, 15);
             y += 21;
@@ -47,24 +45,16 @@ const extratoCreditoService = {
             y += 5;
         }
 
-        // ============================================================
         // TÍTULO
-        // ============================================================
         doc.setFontSize(14).setFont('helvetica', 'bold');
         doc.text('EXTRATO DE CRÉDITO', pw / 2, y, { align: 'center' });
-
         doc.setFontSize(8).setFont('helvetica', 'normal');
         doc.text('Data: ' + moment().format('DD/MM/YY HH:mm'), pw - m, y, { align: 'right' });
         y += 8;
-
         doc.setDrawColor(0).setLineWidth(0.4).line(m, y, pw - m, y);
         y += 6;
 
-
-
-        // ============================================================
         // DADOS DO CLIENTE
-        // ============================================================
         doc.setFontSize(9).setFont('helvetica', 'bold');
         doc.text('DADOS DO CLIENTE', m, y);
         doc.setFontSize(7).setFont('helvetica', 'normal');
@@ -91,9 +81,7 @@ const extratoCreditoService = {
         doc.text('Telf.: ' + safeString(cliente?.telefone), m + 80, y);
         y += 6;
 
-        // ============================================================
         // DADOS DO CRÉDITO
-        // ============================================================
         doc.setDrawColor(180).setLineWidth(0.2).line(m, y, pw - m, y);
         y += 4;
         doc.setFontSize(9).setFont('helvetica', 'bold');
@@ -153,9 +141,9 @@ const extratoCreditoService = {
         y += 8;
 
         // ============================================================
-        // TABELA DE EXTRATO
+        // TABELA DE EXTRATO - LEGENDAS CORRIGIDAS
         // ============================================================
-        const head = ['Data', 'Descrição', 'Débito', 'Crédito', 'V. em Mora', 'Juros Mora', 'Dias', 'Saldo'];
+        const head = ['Data', 'Descrição', 'Débito', 'Crédito', 'V. em Mora', 'Juros Mora', 'Nº Moras', 'Saldo'];
 
         const body = linhas.map(linha => [
             linha.data ? moment(linha.data).format('DD/MM/YY') : '-',
@@ -164,7 +152,7 @@ const extratoCreditoService = {
             Number(linha.credito) > 0 ? formatarNumero(linha.credito) : '',
             Number(linha.valorEmMora) > 0 ? formatarNumero(linha.valorEmMora) : '',
             Number(linha.jurosDeMora) > 0 ? formatarNumero(linha.jurosDeMora) : '',
-            Number(linha.diasDeMora) > 0 ? String(linha.diasDeMora) : '',
+            Number(linha.numeroDeMoras) > 0 ? String(linha.numeroDeMoras) : '',
             formatarNumero(linha.saldo || 0),
         ]);
 
@@ -189,22 +177,20 @@ const extratoCreditoService = {
             bodyStyles: { valign: 'middle' },
             margin: { left: m, right: m },
             columnStyles: {
-                0: { cellWidth: 18, halign: 'center' },
-                1: { cellWidth: 55, halign: 'left' },
-                2: { cellWidth: 22, halign: 'right', fillColor: [149, 213, 178] },
-                3: { cellWidth: 22, halign: 'right', fillColor: [202, 240, 248] },
-                4: { cellWidth: 20, halign: 'right', fillColor: [237, 186, 139] },
-                5: { cellWidth: 20, halign: 'right', fillColor: [242, 218, 198] },
-                6: { cellWidth: 12, halign: 'center', fillColor: [210, 218, 192] },
-                7: { cellWidth: 22, halign: 'right', fillColor: [255, 203, 242] },
+                0: { cellWidth: 16, halign: 'center' },   // Data
+                1: { cellWidth: 45, halign: 'left' },     // Descrição
+                2: { cellWidth: 20, halign: 'right' },    // Débito
+                3: { cellWidth: 20, halign: 'right' },    // Crédito
+                4: { cellWidth: 18, halign: 'right' },    // V. em Mora
+                5: { cellWidth: 18, halign: 'right' },    // Juros Mora
+                6: { cellWidth: 12, halign: 'center' },   // Nº Moras
+                7: { cellWidth: 20, halign: 'right' },    // Saldo
             },
         });
 
         y = doc.lastAutoTable.finalY + 5;
 
-        // ============================================================
         // SALVAR
-        // ============================================================
         const fileName = `Extrato_Credito_${safeString(credito.numero)}.pdf`;
         doc.save(fileName);
         console.log('📄 Extrato gerado com sucesso:', fileName);

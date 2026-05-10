@@ -125,91 +125,45 @@ class PagamentoService {
      * Registra um novo pagamento
      */
     Pagamento registrarPagamento(RegistroPagamentoCommand cmd) {
-        log.info("💰 Registrando pagamento - Crédito: ${cmd.creditoId}, Valor: ${cmd.valorPago}")
-
-        def usuario = Usuario.findByUsername(cmd.username)
-        if (!usuario) {
-            throw new ValidationException("Usuário não encontrado", null)
-        }
-
-        def credito = Credito.get(cmd.creditoId)
+        Credito credito = Credito.get(cmd.creditoId)
         if (!credito) {
             throw new ValidationException("Crédito não encontrado", null)
         }
 
-        def entidade = credito.entidade
-        Parcela parcela = null
-
-        if (cmd.parcelaId) {
-            parcela = Parcela.get(cmd.parcelaId)
-            if (!parcela) {
-                throw new ValidationException("Parcela não encontrada", null)
-            }
-            if (parcela.pago && cmd.valorParcela > 0) {
-                throw new ValidationException("Esta parcela já foi paga", null)
-            }
-        }
-
-        // Criar o pagamento
         Pagamento pagamento = new Pagamento()
         pagamento.credito = credito
-        pagamento.parcela = parcela
-        pagamento.entidade = entidade
-        pagamento.usuario = usuario
-
-        pagamento.valorPago = cmd.valorPago.setScale(2, RoundingMode.HALF_UP)
-        pagamento.valorParcela = cmd.valorParcela?.setScale(2, RoundingMode.HALF_UP) ?: 0.0
-        pagamento.valorJuros = cmd.valorJuros?.setScale(2, RoundingMode.HALF_UP) ?: 0.0
-        pagamento.valorMulta = cmd.valorMulta?.setScale(2, RoundingMode.HALF_UP) ?: 0.0
-        pagamento.valorJurosDemora = cmd.valorJurosDemora?.setScale(2, RoundingMode.HALF_UP) ?: 0.0
-
-        // Calcular troco
-        BigDecimal totalCobrado = pagamento.valorParcela + pagamento.valorJuros + pagamento.valorMulta + pagamento.valorJurosDemora
-        pagamento.troco = (pagamento.valorPago - totalCobrado).max(0.0).setScale(2, RoundingMode.HALF_UP)
-
-        pagamento.formaPagamento = cmd.formaPagamento
-        pagamento.descricao = cmd.descricao
-        pagamento.referenciaPagamento = cmd.referenciaPagamento
+        pagamento.entidade = credito.entidade
         pagamento.dataPagamento = cmd.dataPagamento ?: new Date()
+        pagamento.formaPagamento = cmd.formaPagamento
+        pagamento.referenciaPagamento = cmd.referenciaPagamento
+        pagamento.valorPago = cmd.valorPago
+        pagamento.valorParcela = cmd.valorParcela ?: 0.0
+        pagamento.valorJuros = cmd.valorJuros ?: 0.0
+        pagamento.valorJurosDemora = cmd.valorJurosDemora ?: 0.0
+        pagamento.valorMulta = cmd.valorMulta ?: 0.0
+        pagamento.troco = cmd.troco ?: 0.0
+        pagamento.descricao = cmd.descricao
         pagamento.numeroRecibo = gerarNumeroRecibo()
-        pagamento.criadoPor = cmd.username
+
+        // Processar parcelas
+        if (cmd.parcelas) {
+            processarParcelas(pagamento, cmd.parcelas)
+        }
 
         if (!pagamento.save(flush: true, failOnError: true)) {
             throw new ValidationException("Erro ao salvar pagamento", pagamento.errors)
         }
 
-        // Se tem parcela, atualizar usando o CreditoService
-        if (parcela && pagamento.valorParcela > 0) {
-            try {
-                creditoService.registrarPagamento(
-                        parcela,
-                        pagamento.valorParcela,
-                        cmd.formaPagamento,
-                        pagamento.numeroRecibo
-                )
-                log.info("✅ Parcela #${parcela.numero} atualizada com sucesso")
-            } catch (Exception e) {
-                log.error("Erro ao atualizar parcela: ${e.message}")
-            }
-        } else if (!parcela) {
-            // Pagamento sem parcela específica
-            credito.totalPago = (credito.totalPago ?: 0.0) + pagamento.valorPago
-            credito.totalEmDivida = (credito.totalPrevisto ?: credito.valorTotal) - credito.totalPago
-            credito.totalEmDivida = credito.totalEmDivida.max(0.0)
-
-            if (credito.totalEmDivida <= 0) {
-                credito.quitado = true
-                credito.status = StatusCredito.QUITADO
-                credito.ativo = false
-            }
-
-            credito.save(flush: true)
+        // ***** NOVO: Criar ou atualizar diário automaticamente *****
+        try {
+            log.info("Verificando/criando diário para pagamento na data: ${pagamento.dataPagamento}")
+            Diario diario = diarioCaixaService.encontrarOuCriarDiario(pagamento.dataPagamento)
+            diarioCaixaService.atualizarTotaisDiario(diario)
+            log.info("Diário atualizado com pagamento: ${pagamento.numeroRecibo}")
+        } catch (Exception e) {
+            log.error("Erro ao atualizar diário: ${e.message}", e)
+            // Não impede o pagamento, apenas loga o erro
         }
-
-        // Recalcular totais do crédito
-        creditoService.recalcularTotais(credito)
-
-        log.info("✅ Pagamento registrado: ${pagamento.numeroRecibo} - ${pagamento.valorPago} MZN")
 
         return pagamento
     }

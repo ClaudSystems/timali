@@ -10,6 +10,198 @@ import java.text.SimpleDateFormat
 @Transactional
 class CreditoService {
 
+        // ... outros serviços ...
+        DiarioCaixaService diarioCaixaService  // ← ADICIONAR
+
+    // ====================================================================
+// MÉTODOS DE CÁLCULO DE MORA (NOVOS)
+// ====================================================================
+
+/**
+ * Calcula e aplica moras a TODAS as parcelas vencidas de um crédito.
+ * Deve ser chamado antes de retornar o crédito para o frontend.
+ */
+    /**
+     * Calcula e aplica moras a TODAS as parcelas vencidas de um crédito.
+     * Leva em conta TODAS as regras definidas na criação do crédito.
+     */
+    /**
+     * Zera hora/minuto/segundo/milissegundo de uma data
+     */
+    private Date zerarHora(Date data) {
+        if (!data) return null
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(data)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.time
+    }
+
+    Credito calcularMorasAntesDeExibir(Credito credito) {
+        if (!credito || credito.quitado) return credito
+
+        log.info("🔍 Calculando moras para crédito #${credito.numero}")
+
+
+
+        Date hoje = zerarHora(new Date())
+        boolean teveAlteracao = false
+
+        // Regras do crédito (definidas na criação)
+        BigDecimal percentualJurosDemora = credito.percentualJurosDeDemora ?: BigDecimal.ZERO
+        boolean ignorarPagamentosNoPrazo = credito.ignorarPagamentosNoPrazo ?: false
+        int maximoCobrancasMora = credito.maximoCobrancasMora ?: 0
+        def periodicidadeMora = credito.periodicidadeMora
+
+        // Se não tem juros de demora configurado, não calcula mora
+        if (percentualJurosDemora.compareTo(BigDecimal.ZERO) <= 0) {
+            log.debug("  ⏭️ Crédito #${credito.numero} não tem juros de demora configurados")
+            return credito
+        }
+
+        credito.parcelas?.each { Parcela parcela ->
+            if (parcela.pago) return // Pula parcelas já pagas
+
+            if (parcela.dataVencimento.before(hoje)) {
+                long diffMillis = hoje.time - parcela.dataVencimento.time
+                int diasAtraso = (diffMillis / (1000 * 60 * 60 * 24)) as Integer
+
+                if (diasAtraso > 0) {
+                    parcela.diasAtraso = diasAtraso
+                    parcela.emMora = true
+                    parcela.status = StatusParcela.VENCIDA
+
+                    // ===== REGRA: Definir valor base para cálculo =====
+                    BigDecimal valorBase
+                    if (ignorarPagamentosNoPrazo) {
+                        // Ignora pagamentos parciais - cobra mora sobre o valor TOTAL da parcela
+                        valorBase = parcela.valorParcela ?: BigDecimal.ZERO
+                    } else {
+                        // Desconta pagamentos parciais já feitos
+                        valorBase = (parcela.valorParcela ?: BigDecimal.ZERO) - (parcela.valorPago ?: BigDecimal.ZERO)
+                    }
+
+                    if (valorBase.compareTo(BigDecimal.ZERO) <= 0) {
+                        return // Nada a cobrar
+                    }
+
+                    // ===== REGRA: Periodicidade da mora =====
+                    int diasPorCobranca = 1 // Padrão: diário
+                    if (periodicidadeMora) {
+                        String perMora = periodicidadeMora.toString().toUpperCase()
+                        if (perMora.contains('SEMANAL')) {
+                            diasPorCobranca = 7
+                        } else if (perMora.contains('QUINZENAL')) {
+                            diasPorCobranca = 15
+                        } else if (perMora.contains('MENSAL')) {
+                            diasPorCobranca = 30
+                        }
+                    }
+
+                    int cobrancasDevidas = (diasAtraso / diasPorCobranca) as Integer
+
+                    // ===== REGRA: Limite máximo de cobranças =====
+                    if (maximoCobrancasMora > 0 && cobrancasDevidas > maximoCobrancasMora) {
+                        cobrancasDevidas = maximoCobrancasMora
+                    }
+
+                    // ===== REGRA: Não recalcular se já foi aplicado =====
+                    if (cobrancasDevidas <= parcela.cobrancasMoraAplicadas) {
+                        return
+                    }
+
+                    // ===== CÁLCULO DA MORA =====
+                    BigDecimal taxaMora = percentualJurosDemora.divide(new BigDecimal(100), 10, RoundingMode.HALF_UP)
+                    BigDecimal valorMora = valorBase.multiply(taxaMora)
+                            .multiply(new BigDecimal(cobrancasDevidas))
+                            .setScale(2, RoundingMode.HALF_UP)
+
+                    parcela.valorJurosDemora = valorMora
+                    parcela.cobrancasMoraAplicadas = cobrancasDevidas
+                    teveAlteracao = true
+
+                    log.info("  📍 Parcela ${parcela.numero}: ${diasAtraso}d → " +
+                            "${cobrancasDevidas}x${diasPorCobranca}d = ${valorMora} MZN " +
+                            "(taxa: ${percentualJurosDemora}%, base: ${valorBase})")
+                }
+            }
+        }
+
+        if (teveAlteracao) {
+            credito.emMora = true
+            credito.status = StatusCredito.EM_ATRASO
+
+            // Salvar TODAS as alterações
+            credito.parcelas?.each { it.save(flush: true) }
+            credito.save(flush: true)
+        }
+
+        return credito
+    }
+
+
+/**
+ * Calcula o número de cobranças de mora baseado na periodicidade configurada
+ */
+    private int calcularCobrancasMora(int diasAtraso, Credito credito) {
+        if (!credito.periodicidadeMora || credito.maximoCobrancasMora <= 0) {
+            return diasAtraso // Padrão: 1 cobrança por dia
+        }
+
+        int diasPorCobranca = 1
+
+        switch (credito.periodicidadeMora.toString().toUpperCase()) {
+            case 'SEMANAL':
+            case 'SEMANALMENTE':
+                diasPorCobranca = 7
+                break
+            case 'QUINZENAL':
+            case 'QUINZENALMENTE':
+                diasPorCobranca = 15
+                break
+            case 'MENSAL':
+            case 'MENSALMENTE':
+                diasPorCobranca = 30
+                break
+            default:
+                diasPorCobranca = 1
+        }
+
+        int cobrancas = (diasAtraso / diasPorCobranca) as Integer
+        if (cobrancas > credito.maximoCobrancasMora) {
+            cobrancas = credito.maximoCobrancasMora
+        }
+
+        return cobrancas
+    }
+
+/**
+ * Recalcula moras de TODOS os créditos ativos (para job diário)
+ */
+    def recalcularMorasTodosCreditos() {
+        log.info("🔄 Iniciando recálculo de moras de todos os créditos...")
+
+        List<Credito> creditosAtivos = Credito.findAllByQuitado(false)
+        int processados = 0
+        int comMora = 0
+
+        creditosAtivos.each { Credito credito ->
+            try {
+                def antes = credito.emMora
+                calcularMorasAntesDeExibir(credito)
+                processados++
+                if (credito.emMora && !antes) comMora++
+            } catch (Exception e) {
+                log.error("❌ Erro ao calcular moras #${credito.numero}: ${e.message}")
+            }
+        }
+
+        log.info("✅ Moras recalculadas! Processados: ${processados}, Novas moras: ${comMora}")
+        return [processados: processados, comMora: comMora]
+    }
+
     /**
      * Gera as parcelas de um crédito.
      */
@@ -187,6 +379,71 @@ class CreditoService {
             )
 
             parcela.save(flush: true, failOnError: true)
+            try {
+                Pagamento pagamento = new Pagamento()
+                pagamento.credito = parcela.credito
+                pagamento.entidade = parcela.credito?.entidade
+                pagamento.parcela = parcela
+                pagamento.dataPagamento = dataEfetiva
+                pagamento.formaPagamento = formaPagamento ?: 'DINHEIRO'
+                pagamento.valorPago = valorPago
+                pagamento.valorParcela = parcela.valorParcela
+                pagamento.numeroRecibo = comprovativo ?: "REC-${dataEfetiva.format('yyyyMMdd')}-${System.currentTimeMillis() % 100000}"
+                pagamento.descricao = "Pgto ${parcela.numero}ª/${parcela.credito?.numero}"
+                pagamento.referenciaPagamento = comprovativo
+                pagamento.troco = 0.0
+                pagamento.usuario = parcela.credito?.usuario
+                pagamento.criadoPor = parcela.credito?.criadoPor ?: 'sistema'
+                pagamento.valorJuros = 0.0
+                pagamento.valorMulta = 0.0
+                pagamento.valorJurosDemora = 0.0
+
+                if (pagamento.save(flush: true)) {
+                    log.info "✅ Recibo ${pagamento.numeroRecibo} - ${valorPago} MZN"
+
+                    // Associar ao Diário
+                    Calendar cal = Calendar.getInstance()
+                    cal.setTime(dataEfetiva)
+                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                    cal.set(Calendar.MINUTE, 0)
+                    cal.set(Calendar.SECOND, 0)
+                    cal.set(Calendar.MILLISECOND, 0)
+                    Date dataLimpa = cal.getTime()
+
+                    Diario diario = Diario.findByDataReferencia(dataLimpa)
+                    if (!diario) {
+                        diario = new Diario()
+                        diario.dataReferencia = dataLimpa
+                        diario.estado = 'aberto'
+                        diario.numeroDiario = "DIA-${dataLimpa.format('yyyyMMdd')}-001"
+                        diario.totalRecebimentos = 0.0
+                        diario.totalSaidas = 0.0
+                        diario.saldo = 0.0
+                        diario.dateCreated = new Date()
+                        diario.lastUpdated = new Date()
+                        diario.criadoPor = pagamento.criadoPor
+                        diario.usuario = pagamento.usuario
+                        diario.save(flush: true)
+                        log.info "📒 Diário criado: ${diario.numeroDiario}"
+                    }
+
+                    pagamento.diario = diario
+                    pagamento.save(flush: true)
+
+                    diario.addToPagamentos(pagamento)
+                    diario.totalRecebimentos = diario.pagamentos?.sum { it.valorPago ?: 0 } ?: 0.0
+                    diario.totalSaidas = diario.saidas?.sum { it.valor ?: 0 } ?: 0.0
+                    diario.saldo = diario.totalRecebimentos - diario.totalSaidas
+                    diario.lastUpdated = new Date()
+                    diario.save(flush: true)
+
+                    log.info "📒 Recibo ${pagamento.numeroRecibo} → Diário ${diario.numeroDiario}"
+                }
+            } catch (Exception e) {
+                log.error "Erro ao criar Pagamento/Diário: ${e.message}", e
+            }
+
+
         }
 
         // RECALCULAR TOTAIS APÓS GERAR PARCELAS
@@ -301,14 +558,9 @@ class CreditoService {
 
         log.info("💰 Registrando pagamento - Parcela #${parcela.numero} - Valor: ${valorPago}")
 
-        if (parcela.pago) {
-            log.warn("Parcela #${parcela.numero} já está paga")
-            return
-        }
-
-        // NOVO: Usar data fornecida ou data atual
         Date dataEfetiva = dataPagamento ?: new Date()
 
+        // 1. Atualizar parcela (acumular valor)
         BigDecimal valorPagoAnterior = parcela.valorPago ?: 0.0
         BigDecimal valorTotalPago = valorPagoAnterior + valorPago
 
@@ -319,14 +571,14 @@ class CreditoService {
         if (valorTotalPago >= parcela.valorParcela) {
             parcela.valorPago = parcela.valorParcela
             parcela.pago = true
-            parcela.dataPagamento = dataEfetiva  // NOVO: Usar data fornecida
+            parcela.dataPagamento = dataEfetiva
             parcela.status = StatusParcela.PAGA
 
             if (parcela.dataPagamento <= parcela.dataVencimento) {
                 parcela.pagoNoPrazo = true
             }
 
-            log.info("✅ Parcela #${parcela.numero} QUITADA - Data: ${dataEfetiva.format('dd/MM/yyyy')}")
+            log.info("✅ Parcela #${parcela.numero} QUITADA")
         } else {
             log.info("📝 Pagamento parcial - Parcela #${parcela.numero}: ${valorTotalPago}/${parcela.valorParcela}")
         }
@@ -336,9 +588,78 @@ class CreditoService {
             throw new RuntimeException("Erro ao salvar parcela: ${parcela.errors}")
         }
 
+        // 2. ***** NOVO: Criar registro de Pagamento (recibo) *****
+        Pagamento pagamento = criarRegistroPagamento(parcela, valorPago, formaPagamento, comprovativo, dataEfetiva)
+
+        // 3. ***** NOVO: Associar ao Diário *****
+        if (pagamento) {
+           diarioCaixaService.associarPagamentoAoDiario(pagamento)
+        }
+
+        // 4. Recalcular totais do crédito
         recalcularTotais(parcela.credito)
 
         return parcela
+    }
+
+// ***** NOVOS MÉTODOS PRIVADOS *****
+
+/**
+ * Cria um registro de Pagamento (recibo) para cada pagamento recebido
+ */
+    private Pagamento criarRegistroPagamento(Parcela parcela, BigDecimal valorPago, String formaPagamento, String comprovativo, Date dataPagamento) {
+        try {
+            Pagamento pagamento = new Pagamento()
+            pagamento.credito = parcela.credito
+            pagamento.entidade = parcela.credito?.entidade
+            pagamento.parcela = parcela
+            pagamento.dataPagamento = dataPagamento
+            pagamento.formaPagamento = formaPagamento ?: 'DINHEIRO'
+            pagamento.valorPago = valorPago
+            pagamento.valorParcela = parcela.valorParcela
+            pagamento.numeroRecibo = comprovativo ?: gerarNumeroRecibo()
+            pagamento.descricao = "Pgto ${parcela.numero}ª Prestação - ${parcela.credito?.numero}"
+            pagamento.referenciaPagamento = comprovativo
+            pagamento.troco = 0.0
+            pagamento.usuario = parcela.credito?.usuario
+            pagamento.criadoPor = parcela.credito?.criadoPor ?: 'sistema'
+
+            if (pagamento.save(flush: true, failOnError: true)) {
+                log.info "✅ Recibo ${pagamento.numeroRecibo} criado - ${valorPago} MZN"
+                return pagamento
+            } else {
+                log.error "Erro ao criar pagamento: ${pagamento.errors}"
+                return null
+            }
+        } catch (Exception e) {
+            log.error "Erro ao criar registro de pagamento: ${e.message}", e
+            return null
+        }
+    }
+
+/**
+ * Associa o pagamento ao Diário do dia
+ */
+
+
+/**
+ * Gera número de recibo único
+ */
+    private String gerarNumeroRecibo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd")
+        String prefixo = sdf.format(new Date())
+        int count = Pagamento.count() + 1
+        return "REC-${prefixo}-${String.format('%04d', count)}"
+    }
+
+/**
+ * Gera número do diário
+ */
+    private String gerarNumeroDiario(Date data) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd")
+        String prefixo = sdf.format(data)
+        def count = Diario.countByDataReferencia(data) + 1
+        return "DIA-${prefixo}-${String.format('%03d', count)}"
     }
 
     /**

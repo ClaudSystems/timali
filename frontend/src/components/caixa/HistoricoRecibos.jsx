@@ -43,46 +43,54 @@ const HistoricoRecibos = ({ onAbrirRecibo }) => {
     const [cliente, setCliente] = useState('');
     const [credito, setCredito] = useState('');
     const [forma, setForma] = useState(null);
-// No HistoricoRecibos.jsx, dentro da função buscar:
+    const [pesquisou, setPesquisou] = useState(false);  // ← NOVO: controla se já pesquisou
 
-const buscar = useCallback(async () => {
-    try {
-        setLoading(true);
-        let d = [];
+    // ***** REMOVIDO o useEffect que carregava automaticamente *****
 
-        if (periodo && periodo.length === 2) {
-            const dataInicio = periodo[0].format('YYYY-MM-DD');
-            const dataFim = periodo[1].format('YYYY-MM-DD');
-            // USAR O NOVO ENDPOINT PARA RECIBOS (por dataPagamento)
-            d = await creditoService.recibosPorPeriodo(dataInicio, dataFim);
-        } else {
-            d = await creditoService.historicoPagamentos({ max: 200 });
+    const buscar = useCallback(async () => {
+        try {
+            setLoading(true);
+            setPesquisou(true);  // ← MARCA QUE PESQUISOU
+
+            let d = [];
+
+            if (periodo && periodo.length === 2) {
+                const dataInicio = periodo[0].format('YYYY-MM-DD');
+                const dataFim = periodo[1].format('YYYY-MM-DD');
+                d = await creditoService.recibosPorPeriodo(dataInicio, dataFim);
+            } else {
+                // Sem período definido, não busca nada (ou busca vazio)
+                message.warning('Selecione um período para filtrar');
+                setData([]);
+                setLoading(false);
+                return;
+            }
+
+            let f = Array.isArray(d) ? d : [];
+            if (cliente) f = f.filter(p => (p.cliente || '').toLowerCase().includes(cliente.toLowerCase()));
+            if (credito) f = f.filter(p => (p.creditoNumero || '').toLowerCase().includes(credito.toLowerCase()));
+            if (forma) f = f.filter(p => p.formaPagamento === forma);
+
+            setData(f);
+
+            if (f.length === 0) {
+                message.info('Nenhum recibo encontrado para os filtros selecionados');
+            }
+        } catch (e) {
+            message.error('Erro ao buscar recibos');
+            setData([]);
+        } finally {
+            setLoading(false);
         }
-
-        let f = Array.isArray(d) ? d : [];
-        if (cliente) f = f.filter(p => (p.cliente || '').toLowerCase().includes(cliente.toLowerCase()));
-        if (credito) f = f.filter(p => (p.creditoNumero || '').toLowerCase().includes(credito.toLowerCase()));
-        if (forma) f = f.filter(p => p.formaPagamento === forma);
-
-        setData(f);
-    } catch (e) {
-        message.error('Erro ao buscar');
-        setData([]);
-    } finally {
-        setLoading(false);
-    }
-}, [periodo, cliente, credito, forma]);
-
-    // Buscar automaticamente quando os filtros mudarem
-    React.useEffect(() => {
-        buscar();
-    }, [buscar]);
+    }, [periodo, cliente, credito, forma]);
 
     const limparFiltros = () => {
         setPeriodo(null);
         setCliente('');
         setCredito('');
         setForma(null);
+        setData([]);
+        setPesquisou(false);  // ← VOLTA AO ESTADO INICIAL
     };
 
     const handleRecibo = (p) => {
@@ -125,7 +133,7 @@ const buscar = useCallback(async () => {
             <Card size="small" style={{ marginBottom: 16 }}>
                 <Row gutter={[12, 12]} align="middle">
                     <Col xs={24} sm={12} md={6}>
-                        <Text strong style={{ display: 'block', marginBottom: 4 }}>Período</Text>
+                        <Text strong style={{ display: 'block', marginBottom: 4 }}>Período *</Text>
                         <RangePicker
                             value={periodo}
                             onChange={setPeriodo}
@@ -152,7 +160,7 @@ const buscar = useCallback(async () => {
                     <Col xs={24} sm={12} md={4}>
                         <Text strong style={{ display: 'block', marginBottom: 4 }}>&nbsp;</Text>
                         <Space>
-                            <Button type="primary" icon={<FilterOutlined />} onClick={buscar}>Filtrar</Button>
+                            <Button type="primary" icon={<FilterOutlined />} onClick={buscar} loading={loading}>Filtrar</Button>
                             <Button icon={<ReloadOutlined />} onClick={limparFiltros}>Limpar</Button>
                         </Space>
                     </Col>
@@ -160,19 +168,30 @@ const buscar = useCallback(async () => {
             </Card>
 
             <Card>
-                <div style={{ marginBottom: 12 }}>
-                    <Text type="secondary">{data.length} registo(s) encontrado(s)</Text>
-                </div>
-                <Table
-                    columns={columns}
-                    dataSource={data}
-                    rowKey="id"
-                    size="small"
-                    loading={loading}
-                    pagination={{ pageSize: 20, showTotal: t => `Total: ${t} registos` }}
-                    scroll={{ x: 1100 }}
-                    locale={{ emptyText: 'Selecione um período e clique em Filtrar' }}
-                />
+                {pesquisou ? (
+                    <>
+                        <div style={{ marginBottom: 12 }}>
+                            <Text type="secondary">{data.length} registo(s) encontrado(s)</Text>
+                        </div>
+                        <Table
+                            columns={columns}
+                            dataSource={data}
+                            rowKey="id"
+                            size="small"
+                            loading={loading}
+                            pagination={{ pageSize: 20, showTotal: t => `Total: ${t} registos` }}
+                            scroll={{ x: 1100 }}
+                            locale={{ emptyText: 'Nenhum recibo encontrado' }}
+                        />
+                    </>
+                ) : (
+                    <div style={{ textAlign: 'center', padding: 60 }}>
+                        <SearchOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
+                        <p style={{ color: '#999', marginTop: 16, fontSize: 16 }}>
+                            Selecione um período e clique em <strong>Filtrar</strong> para buscar recibos
+                        </p>
+                    </div>
+                )}
             </Card>
         </div>
     );

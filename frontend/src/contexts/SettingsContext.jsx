@@ -1,5 +1,4 @@
 // src/contexts/SettingsContext.jsx
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -17,13 +16,23 @@ export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Dark mode state (local storage apenas)
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('timali_dark_mode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
   useEffect(() => {
     loadSettings();
   }, []);
 
+  // Persistir dark mode no localStorage
+  useEffect(() => {
+    localStorage.setItem('timali_dark_mode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
   const loadSettings = async () => {
     try {
-      // Buscar lista de settings e pegar o primeiro
       const response = await axios.get('http://localhost:8080/api/settings');
       const settingsList = response.data;
 
@@ -50,27 +59,30 @@ export const SettingsProvider = ({ children }) => {
   };
 
   const updateSettings = async (newSettings) => {
-      try {
-        // Pegar o ID - se não tiver settings.id, buscar primeiro
-        let id = settings?.id;
+    try {
+      let id = settings?.id;
 
-        if (!id) {
-          // Buscar o ID correto
-          const resp = await axios.get('/api/settings');
-          const list = resp.data;
-          const first = Array.isArray(list) ? list[0] : list;
-          id = first?.id;
-          if (!id) throw new Error('ID dos settings não encontrado');
-        }
-
-        console.log('🔧 Salvando settings com ID:', id);
-        const response = await axios.put(`/api/settings/${id}`, newSettings);
-        setSettings(response.data);
-        return response.data;
-      } catch (error) {
-        console.error('Error updating settings:', error);
-        throw error;
+      if (!id) {
+        const resp = await axios.get('/api/settings');
+        const list = resp.data;
+        const first = Array.isArray(list) ? list[0] : list;
+        id = first?.id;
+        if (!id) throw new Error('ID dos settings não encontrado');
       }
+
+      console.log('🔧 Salvando settings com ID:', id);
+      const response = await axios.put(`/api/settings/${id}`, newSettings);
+      setSettings(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
+    }
+  };
+
+  // Função para alternar dark mode
+  const toggleDarkMode = () => {
+    setDarkMode(prev => !prev);
   };
 
   const value = {
@@ -86,6 +98,10 @@ export const SettingsProvider = ({ children }) => {
     conta1: settings?.conta1 || '',
     conta2: settings?.conta2 || '',
     conta3: settings?.conta3 || '',
+    // Dark mode properties
+    darkMode,
+    toggleDarkMode,
+    setDarkMode,
   };
 
   return (

@@ -1,10 +1,23 @@
 // src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme as antdTheme } from 'antd';
 import ptPT from 'antd/locale/pt_PT';
+import UsuarioList from './components/usuario/UsuarioList';
+import UsuarioForm from './components/usuario/UsuarioForm';
+import RoleGroupList from './components/usuario/RoleGroupList';
+
+
+
+// Contextos
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+
+// Layout
+import MainLayout from './components/layouts/MainLayout';
+
+// Páginas
 import LoginPage from './components/LoginPage';
-import EntidadeCRUD from './components/EntidadeCRUD';
+import DashboardPage from './pages/DashboardPage';
 import TaxasPage from './pages/TaxasPage';
 import FeriadosPage from './pages/FeriadosPage';
 import DefinicoesCreditoPage from './pages/DefinicoesCreditoPage';
@@ -12,132 +25,194 @@ import CreditoIndex from './pages/credito/CreditoIndex';
 import CreditoCreate from './pages/credito/CreditoCreate';
 import CreditoShow from './pages/credito/CreditoShow';
 import ParcelaList from './components/credito/ParcelaList';
-import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
-import Caixa from './components/caixa/Caixa'; // ← NOVO: Import do módulo Caixa
-import { SettingsProvider } from './contexts/SettingsContext';
-import MainLayout from './components/layouts/MainLayout';
+import Caixa from './components/caixa/Caixa';
 import HistoricoRecibos from './components/caixa/HistoricoRecibos';
+import EntidadeList from './components/entidade/EntidadeList';
 
-// Adicione a rota:
-
+// Componente de Rota Protegida
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('timali_token');
-  return token ? children : <Navigate to="/login" />;
+
+  if (!token) {
+    console.log('🔒 Acesso negado! Redirecionando para login...');
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
 };
 
-function App() {
+// Componente separado para usar o hook useSettings
+const AppContent = () => {
+  const { darkMode } = useSettings();
+
   return (
-    <ConfigProvider locale={ptPT}>
-      <SettingsProvider>
-        <Router>
-          <Routes>
-          <Route path="/recibos" element={
-              <PrivateRoute>
-                  <MainLayout>
-                      <HistoricoRecibos />
-                  </MainLayout>
-              </PrivateRoute>
-          } />
+    <ConfigProvider
+      locale={ptPT}
+      theme={{
+        algorithm: darkMode ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#1890ff',
+          borderRadius: 6,
+        },
+      }}
+    >
+      <Router>
+        <Routes>
+          {/* Rota PÚBLICA - Login */}
+          <Route path="/login" element={<LoginPage />} />
 
-            <Route path="/login" element={<LoginPage />} />
-
-            <Route path="/" element={
+          {/* Rotas PROTEGIDAS */}
+          <Route
+            path="/"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <DashboardPage />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
+            <Route path="/usuarios" element={<PrivateRoute><MainLayout><UsuarioList /></MainLayout></PrivateRoute>} />
+            <Route path="/usuarios/novo" element={<PrivateRoute><MainLayout><UsuarioForm /></MainLayout></PrivateRoute>} />
+            <Route path="/usuarios/:id" element={<PrivateRoute><MainLayout><UsuarioForm /></MainLayout></PrivateRoute>} />
+            <Route path="/gruposroles" element={<PrivateRoute><MainLayout><RoleGroupList /></MainLayout></PrivateRoute>} />
 
-            <Route path="/entidades" element={
-              <PrivateRoute>
-                <MainLayout>
-                  <EntidadeCRUD />
-                </MainLayout>
-              </PrivateRoute>
-            } />
-
-            <Route path="/taxas" element={
+            T
+          <Route
+            path="/taxas"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <TaxasPage />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/feriados" element={
+          <Route
+            path="/feriados"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <FeriadosPage />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/definicoesCredito" element={
+          <Route
+            path="/definicoesCredito"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <DefinicoesCreditoPage />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/creditos" element={
+          <Route
+            path="/creditos"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <CreditoIndex />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/creditos/novo" element={
+          <Route
+            path="/creditos/novo"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <CreditoCreate />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/creditos/:id" element={
+          <Route
+            path="/creditos/:id"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <CreditoShow />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/creditos/:id/parcelas" element={
+          <Route
+            path="/creditos/:id/parcelas"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <ParcelaList />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            {/* ============================================ */}
-            {/* NOVA ROTA: Módulo Caixa / Pagamentos          */}
-            {/* ============================================ */}
-            <Route path="/caixa" element={
+          <Route
+            path="/caixa"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <Caixa />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="/settings" element={
+          <Route
+            path="/recibos"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <HistoricoRecibos />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
               <PrivateRoute>
                 <MainLayout>
                   <SettingsPage />
                 </MainLayout>
               </PrivateRoute>
-            } />
+            }
+          />
 
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Router>
-      </SettingsProvider>
+          <Route
+            path="/entidades"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <EntidadeList />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+
+          {/* Redirecionar qualquer rota não encontrada */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
     </ConfigProvider>
+  );
+};
+
+function App() {
+  return (
+    <SettingsProvider>
+      <AppContent />
+    </SettingsProvider>
   );
 }
 

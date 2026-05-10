@@ -402,6 +402,9 @@ class CreditoController {
         def offset = params.offset ? params.int('offset') : 0
 
         def creditos = Credito.list(max: max, offset: offset, sort: 'dataEmissao', order: 'desc')
+        // ===== CALCULAR MORAS PARA TODOS OS CRÉDITOS DA LISTA =====
+        creditos.each { creditoService.calcularMorasAntesDeExibir(it) }
+        // ==========================================================
 
         def result = []
 
@@ -466,7 +469,7 @@ class CreditoController {
                 render status: 404, text: [message: "Crédito não encontrado"] as JSON
                 return
             }
-
+            creditoService.calcularMorasAntesDeExibir(credito)
             // Logs de depuração
             println "=" * 60
             println "🔍 DEPURAÇÃO - Crédito ID: ${credito.id}"
@@ -553,6 +556,7 @@ class CreditoController {
             def result = [
                     id: credito.id,
                     numero: credito.numero,
+
                     valorConcedido: safeDecimal(credito.valorConcedido),
                     valorTotal: safeDecimal(credito.valorTotal),
                     percentualDeJuros: safeDecimal(credito.percentualDeJuros),
@@ -572,11 +576,10 @@ class CreditoController {
                     definicaoCredito: definicaoCreditoData,
                     usuario: usuarioData,
                     parcelas: parcelas,
-                    totais: [
-                            totalPrevisto: totalParcelas.setScale(2, RoundingMode.HALF_UP),
-                            totalPago: totalPago.setScale(2, RoundingMode.HALF_UP),
-                            saldoPendente: (totalParcelas - totalPago).setScale(2, RoundingMode.HALF_UP)
-                    ]
+                    totalPrevisto: credito.totalPrevisto,
+                    totalPago: credito.totalPago,         // ← DIRETO na raiz
+                    totalEmDivida: credito.totalEmDivida,
+
             ]
 
             render result as JSON
@@ -603,42 +606,14 @@ class CreditoController {
         criarCredito(data)
     }
 
-    @Transactional
-    def update() {
-        def credito = Credito.get(params.id)
-        if (!credito) {
-            render status: 404, text: [message: "Crédito não encontrado"] as JSON
-            return
-        }
-        credito.properties = request.JSON
-        credito.save(flush: true)
-        respond credito
-    }
-
-    @Transactional
-    def patch() {
-        update()
-    }
-
-    @Transactional
-    def delete() {
-        def credito = Credito.get(params.id)
-        if (!credito) {
-            render status: 404, text: [message: "Crédito não encontrado"] as JSON
-            return
-        }
-        credito.delete(flush: true)
-        render status: 204
-    }
-
-    // ====================================================================
-    // MÉTODO AUXILIAR PARA CRIAR CRÉDITO
-    // ====================================================================
-
     private def criarCredito(data) {
+
         println "=" * 50
         println "CRIANDO CRÉDITO"
         println "=" * 50
+
+        // Data de emissão
+
 
         try {
             if (!data.entidadeId) {
@@ -747,6 +722,38 @@ class CreditoController {
         }
     }
 
+    @Transactional
+    def update() {
+        def credito = Credito.get(params.id)
+        if (!credito) {
+            render status: 404, text: [message: "Crédito não encontrado"] as JSON
+            return
+        }
+        credito.properties = request.JSON
+        credito.save(flush: true)
+        respond credito
+    }
+
+    @Transactional
+    def patch() {
+        update()
+    }
+
+    // ====================================================================
+    // MÉTODO AUXILIAR PARA CRIAR CRÉDITO
+    // ====================================================================
+
+    @Transactional
+    def delete() {
+        def credito = Credito.get(params.id)
+        if (!credito) {
+            render status: 404, text: [message: "Crédito não encontrado"] as JSON
+            return
+        }
+        credito.delete(flush: true)
+        render status: 204
+    }
+
     // ====================================================================
     // ENDPOINTS CUSTOMIZADOS
     // ====================================================================
@@ -760,18 +767,23 @@ class CreditoController {
         }
 
         def creditos = Credito.createCriteria().list {
-            entidade {
-                or {
-                    ilike('nome', "%${termo}%")
-                    ilike('codigo', "%${termo}%")
-                    ilike('nuit', "%${termo}%")
+            // Buscar pelo número do crédito OU por dados da entidade
+            or {
+                ilike('numero', "%${termo}%")  // ← ADICIONAR: busca pelo número do crédito
+                entidade {
+                    or {
+                        ilike('nome', "%${termo}%")
+                        ilike('codigo', "%${termo}%")
+                        ilike('nuit', "%${termo}%")
+                    }
                 }
             }
-            eq('ativo', true)
-            or {
-                eq('status', StatusCredito.ATIVO)
-                eq('status', StatusCredito.EM_ATRASO)
-            }
+            // Mostrar TODOS os créditos, não apenas ativos
+            // eq('ativo', true)  // ← REMOVER ou comentar esta linha
+            // or {
+            //     eq('status', StatusCredito.ATIVO)
+            //     eq('status', StatusCredito.EM_ATRASO)
+            // }
             maxResults(20)
             order('dataEmissao', 'desc')
         }
@@ -898,129 +910,102 @@ class CreditoController {
         render status: 200, text: [message: "Crédito arquivado com sucesso"] as JSON
     }
 
+
+
+
+// CreditoController.groovy - método registrarPagamento
+
     def extrato(Long id) {
+        println ">>> MÉTODO extrato() CHAMADO - ID: ${id} <<<"
+
         def credito = Credito.get(id)
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
         }
 
-        // Recalcular totais
-        creditoService.recalcularTotais(credito)
+        // Calcular moras atualizadas
+        creditoService.calcularMorasAntesDeExibir(credito)
 
-        def entidade = credito.entidade
-        Integer numeroPrestacoes = credito.numeroDePrestacoes ?: 0
-        Integer prestacoesPagas = credito.parcelas?.count { it.pago } ?: 0
-        Integer prestacoesEmDia = numeroPrestacoes - prestacoesPagas
+        def sdf = new java.text.SimpleDateFormat('dd/MM/yyyy')
 
-        // Construir linhas do extrato
-        def linhas = []
+        BigDecimal saldoAtual = credito.valorTotal ?: BigDecimal.ZERO
+        BigDecimal totalMoras = BigDecimal.ZERO
+        BigDecimal totalPago = BigDecimal.ZERO
 
-        // 1. Linha inicial - Concessão do crédito
-        linhas << [
-                data: safeDate(credito.dataEmissao),
+        def linhasExtrato = []
+
+        // Linha de concessão
+        linhasExtrato << [
+                dataEmissao: sdf.format(credito.dataEmissao),
                 descricao: "Concessão de Crédito Nº ${credito.numero}",
                 debito: 0.0,
-                credito: credito.valorConcedido ?: 0.0,
+                credito: credito.valorTotal ?: 0.0,
                 valorEmMora: 0.0,
                 jurosDeMora: 0.0,
-                diasDeMora: 0,
+                numeroDeMoras: 0,
                 saldo: credito.valorTotal ?: 0.0
         ]
 
-        // 2. Parcelas pagas (ordenadas)
-        def parcelasOrdenadas = credito.parcelas?.sort { it.numero }
-        parcelasOrdenadas?.each { parcela ->
-            if (parcela.pago) {
-                linhas << [
-                        data: safeDate(parcela.dataPagamento),
-                        descricao: "Pagamento da ${parcela.numero}ª Prestação - ${parcela.formaPagamento ?: 'DINHEIRO'}",
-                        debito: parcela.valorPago ?: 0.0,
-                        credito: 0.0,
-                        valorEmMora: parcela.emMora ? ((parcela.valorParcela ?: 0) - (parcela.valorPago ?: 0)) : 0.0,
-                        jurosDeMora: parcela.valorPagoJurosDemora ?: 0.0,
-                        diasDeMora: parcela.diasAtraso ?: 0,
-                        saldo: parcela.saldoDevedor ?: 0.0
-                ]
-            }
-        }
+        // Linhas das parcelas
+        credito.parcelas?.sort { it.numero }?.each { Parcela parcela ->
+            String status = parcela.pago ? 'PAGA' : (parcela.dataVencimento < new Date() ? 'VENCIDA' : 'PENDENTE')
+            BigDecimal valorParcela = parcela.valorParcela ?: BigDecimal.ZERO
+            BigDecimal valorPago = parcela.valorPago ?: BigDecimal.ZERO
+            BigDecimal mora = parcela.valorJurosDemora ?: BigDecimal.ZERO
+            int numeroMoras = parcela.cobrancasMoraAplicadas ?: 0
 
-        // 3. Parcelas pendentes (vencidas)
-        parcelasOrdenadas?.each { parcela ->
-            if (!parcela.pago && parcela.dataVencimento && parcela.dataVencimento < new Date()) {
-                linhas << [
-                        data: safeDate(parcela.dataVencimento),
-                        descricao: "${parcela.numero}ª Prestação VENCIDA",
-                        debito: 0.0,
-                        credito: 0.0,
-                        valorEmMora: parcela.valorParcela ?: 0.0,
-                        jurosDeMora: parcela.valorJurosDemora ?: 0.0,
-                        diasDeMora: parcela.diasAtraso ?: 0,
-                        saldo: parcela.saldoDevedor ?: 0.0
-                ]
-            }
-        }
+            saldoAtual = saldoAtual.add(mora)
+            totalMoras = totalMoras.add(mora)
+            saldoAtual = saldoAtual.subtract(valorPago)
+            totalPago = totalPago.add(valorPago)
 
-        // Totais
-        BigDecimal totalDebito = linhas.sum { (it.debito ?: 0) as BigDecimal } ?: 0
-        BigDecimal totalCredito = linhas.sum { (it.credito ?: 0) as BigDecimal } ?: 0
-        BigDecimal totalMoras = linhas.sum { (it.valorEmMora ?: 0) as BigDecimal } ?: 0
-        BigDecimal totalJurosDeMora = linhas.sum { (it.jurosDeMora ?: 0) as BigDecimal } ?: 0
-        BigDecimal totalEmMora = totalMoras + totalJurosDeMora
+            linhasExtrato << [
+                    data: sdf.format(parcela.dataVencimento),
+                    descricao: "${parcela.numero}ª Prestação ${status}",
+                    debito: valorParcela,
+                    credito: valorPago,
+                    valorEmMora: mora,
+                    jurosDeMora: mora,
+                    numeroDeMoras: numeroMoras,
+                    saldo: saldoAtual
+            ]
+        }
 
         def resultado = [
                 credito: [
-                        id: credito.id,
                         numero: credito.numero,
                         valorConcedido: credito.valorConcedido,
                         valorTotal: credito.valorTotal,
-                        dataEmissao: safeDate(credito.dataEmissao),
                         percentualDeJuros: credito.percentualDeJuros,
                         percentualJurosDeDemora: credito.percentualJurosDeDemora,
-                        periodicidade: safeEnum(credito.periodicidade),
-                        formaDeCalculo: safeEnum(credito.formaDeCalculo),
-                        numeroDePrestacoes: numeroPrestacoes,
-                        numeroDePrestacoesEmDia: prestacoesEmDia,
-                        status: safeEnum(credito.status),
-                        totalPago: credito.totalPago,
-                        totalEmDivida: credito.totalEmDivida,
+                        periodicidade: credito.periodicidade?.toString(),
+                        formaDeCalculo: credito.formaDeCalculo?.toString(),
+                        dataEmissao: sdf.format(credito.dataEmissao),
+                        numeroDePrestacoes: credito.numeroDePrestacoes,
+                        numeroDePrestacoesEmDia: credito.parcelas?.count { it.pago } ?: 0,
                         criadoPor: credito.criadoPor
                 ],
                 cliente: [
-                        id: entidade?.id,
-                        codigo: entidade?.codigo,
-                        nome: entidade?.nome,
-                        nuit: entidade?.nuit,
-                        telefone: entidade?.telefone ?: entidade?.telefone1 ?: '',
-                        documento: entidade?.numeroDeIdentificao ?: '',
-                        tipoDocumento: entidade?.tipoDeIdentificao ?: 'BI'
+                        codigo: credito.entidade?.codigo,
+                        nome: credito.entidade?.nome,
+                        documento: credito.entidade?.numeroDeIdentificao ?: credito.entidade?.nuit,
+                        telefone: credito.entidade?.telefone,
+                        tipoDocumento: 'BI'
                 ],
-                linhas: linhas,
+                linhas: linhasExtrato,
                 totais: [
-                        totalDebito: totalDebito,
-                        totalCredito: totalCredito,
+                        totalDebito: 0.0,
+                        totalCredito: credito.valorTotal ?: 0.0,
                         totalMoras: totalMoras,
-                        totalJurosDeMora: totalJurosDeMora,
-                        totalEmMora: totalEmMora
-                ],
-                parcelas: parcelasOrdenadas?.collect { [
-                        numero: it.numero,
-                        dataVencimento: safeDate(it.dataVencimento),
-                        valorParcela: it.valorParcela,
-                        valorAmortizacao: it.valorAmortizacao,
-                        valorJuros: it.valorJuros,
-                        valorPago: it.valorPago,
-                        saldoDevedor: it.saldoDevedor,
-                        pago: it.pago,
-                        status: safeEnum(it.status)
-                ] } ?: []
+                        totalJurosDeMora: totalMoras,
+                        totalPago: totalPago,
+                        totalEmMora: saldoAtual
+                ]
         ]
 
-        render(resultado as JSON)
+        render resultado as JSON
     }
-
-
-// CreditoController.groovy - método registrarPagamento
 
     def registrarPagamento(Long creditoId, Long parcelaId) {
         def credito = Credito.get(creditoId)

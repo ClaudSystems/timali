@@ -1,108 +1,120 @@
-const API_URL = 'http://localhost:8080/api';
+// src/services/entidadeService.js
+const BASE_URL = 'http://localhost:8080/api/entidades';
 
-const getToken = () => {
-    return localStorage.getItem('timali_token');
-};
+const getToken = () => localStorage.getItem('timali_token');
 
-const headers = () => ({
-    'Authorization': `Bearer ${getToken()}`,
+const headers = () => {
+  const token = getToken();
+  console.log('🔑 Token:', token ? 'Presente' : 'AUSENTE');
+
+  return {
+    'Authorization': token ? `Bearer ${token}` : '',
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-});
-
-export const entidadeService = {
-    // LISTAR
-    listar: async () => {
-        const response = await fetch(`${API_URL}/entidades`, {
-            method: 'GET',
-            headers: headers()
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                localStorage.removeItem('timali_token');
-                localStorage.removeItem('timali_user');
-                window.location.href = '/login';
-                throw new Error('Sessão expirada');
-            }
-            throw new Error(`Erro ${response.status}`);
-        }
-
-        const data = await response.json();
-        return Array.isArray(data) ? data : [];
-    },
-
-    // BUSCAR POR ID
-    buscarPorId: async (id) => {
-        const response = await fetch(`${API_URL}/entidades/${id}`, {
-            method: 'GET',
-            headers: headers()
-        });
-
-        if (!response.ok) throw new Error(`Erro ${response.status}`);
-        return response.json();
-    },
-
-    // CRIAR
-    criar: async (entidade) => {
-        const response = await fetch(`${API_URL}/entidades`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify(entidade)
-        });
-
-        if (!response.ok) throw new Error(`Erro ${response.status}`);
-        return response.json();
-    },
-
-    // ATUALIZAR - COM version E id
-    atualizar: async (id, entidade) => {
-        // IMPORTANTE: Incluir id e version para o update funcionar
-        const dadosCompletos = {
-            ...entidade,
-            id: id,                          // ID é obrigatório
-            version: entidade.version        // VERSION é obrigatório!
-        };
-
-        console.log('📦 Enviando update para ID:', id);
-        console.log('📦 Dados completos:', dadosCompletos);
-
-        const response = await fetch(`${API_URL}/entidades/${id}`, {
-            method: 'PUT',
-            headers: headers(),
-            body: JSON.stringify(dadosCompletos)
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            console.error('❌ Erro no update:', error);
-            throw new Error(`Erro ${response.status}: ${error}`);
-        }
-
-        const data = await response.json();
-        console.log('✅ Update sucesso:', data);
-        return data;
-    },
-
-    // EXCLUIR
-    excluir: async (id) => {
-        const response = await fetch(`${API_URL}/entidades/${id}`, {
-            method: 'DELETE',
-            headers: headers()
-        });
-
-        if (!response.ok) throw new Error(`Erro ${response.status}`);
-        return true;
-    },
-
-    // VERIFICAR CÓDIGO
-    verificarCodigo: async (codigo) => {
-        const response = await fetch(`${API_URL}/entidades/verificar-codigo/${codigo}`, {
-            method: 'GET',
-            headers: headers()
-        });
-
-        if (!response.ok) throw new Error(`Erro ${response.status}`);
-        return response.json();
-    }
+  };
 };
+
+const handleResponse = async (response) => {
+  console.log('📡 Status:', response.status);
+
+  if (!response.ok) {
+    // Tentar ler o erro como JSON
+    let errorMessage = `Erro ${response.status}`;
+
+    try {
+      const errorData = await response.json();
+      console.error('❌ Erro JSON:', errorData);
+
+      // Pegar mensagem de erro do Grails
+      if (errorData.errors) {
+        // Erros de validação do Grails
+        const messages = errorData.errors.map(e => e.message || e.defaultMessage).join(', ');
+        errorMessage = messages;
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } catch (e) {
+      // Se não for JSON, ler como texto
+      const errorText = await response.text();
+      console.error('❌ Erro texto:', errorText);
+      if (errorText) errorMessage = errorText;
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  // Verificar se tem conteúdo
+  const text = await response.text();
+  console.log('✅ Resposta:', text.substring(0, 100));
+
+  return text ? JSON.parse(text) : {};
+};
+
+const entidadeService = {
+  listar: async () => {
+    console.log('📥 GET:', BASE_URL);
+    const response = await fetch(BASE_URL, { headers: headers() });
+    return handleResponse(response);
+  },
+
+  buscar: async (id) => {
+    console.log('📥 GET:', `${BASE_URL}/${id}`);
+    const response = await fetch(`${BASE_URL}/${id}`, { headers: headers() });
+    return handleResponse(response);
+  },
+
+  buscarPorNome: async (query) => {
+    console.log('📥 GET:', `${BASE_URL}/buscar?query=${query}`);
+    const response = await fetch(`${BASE_URL}/buscar?query=${encodeURIComponent(query)}`, {
+      headers: headers()
+    });
+    return handleResponse(response);
+  },
+
+  criar: async (data) => {
+    console.log('➕ POST:', BASE_URL);
+    console.log('📤 Dados:', JSON.stringify(data, null, 2));
+
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(data)
+    });
+
+    return handleResponse(response);
+  },
+
+  buscarUsuarios: async () => {
+    console.log('📥 GET: /api/usuarios');
+    const response = await fetch('http://localhost:8080/api/usuarios', {
+      headers: headers()
+    });
+    return handleResponse(response);
+  },
+
+  atualizar: async (id, data) => {
+    console.log('✏️ PUT:', `${BASE_URL}/${id}`);
+    console.log('📤 Dados:', JSON.stringify(data, null, 2));
+
+    const response = await fetch(`${BASE_URL}/${id}`, {
+      method: 'PUT',
+      headers: headers(),
+      body: JSON.stringify(data)
+    });
+
+    return handleResponse(response);
+  },
+
+  excluir: async (id) => {
+    console.log('🗑️ DELETE:', `${BASE_URL}/${id}`);
+    const response = await fetch(`${BASE_URL}/${id}`, {
+      method: 'DELETE',
+      headers: headers()
+    });
+    return handleResponse(response);
+  }
+};
+
+export default entidadeService;

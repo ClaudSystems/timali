@@ -1,3 +1,4 @@
+// grails-app/domain/app/timali/Pagamento.groovy
 package app.timali
 
 import grails.compiler.GrailsCompileStatic
@@ -15,6 +16,7 @@ class Pagamento implements Serializable {
     Parcela parcela
     Entidade entidade
     Usuario usuario
+    Diario diario
 
     String numeroRecibo
 
@@ -25,9 +27,9 @@ class Pagamento implements Serializable {
     BigDecimal valorJurosDemora = 0.0
     BigDecimal troco = 0.0
 
-    String formaPagamento  // DINHEIRO, CARTAO, TRANSFERENCIA, CHEQUE, MPESA, E-MOLA
+    String formaPagamento
     String descricao
-    String referenciaPagamento  // Número de referência para transferências/cheques
+    String referenciaPagamento
 
     Date dataPagamento = new Date()
 
@@ -36,11 +38,14 @@ class Pagamento implements Serializable {
     String criadoPor
     String atualizadoPor
 
+    static belongsTo = [diario: Diario]
+
     static constraints = {
         credito nullable: false
         parcela nullable: true
         entidade nullable: false
         usuario nullable: false
+        diario nullable: true
 
         numeroRecibo nullable: false, blank: false, unique: true, maxSize: 50
 
@@ -70,6 +75,7 @@ class Pagamento implements Serializable {
         entidade index: 'idx_pagamento_entidade'
         formaPagamento index: 'idx_pagamento_forma'
         dataPagamento index: 'idx_pagamento_data'
+        diario index: 'idx_pagamento_diario'
 
         sort dataPagamento: 'desc'
     }

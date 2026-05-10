@@ -1,7 +1,6 @@
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import org.springframework.web.filter.CorsFilter
-import app.timali.GenericUpdateService
 
 
 // Place your Spring DSL code here
@@ -19,9 +18,6 @@ beans = {
     }
 
     corsFilter(CorsFilter, ref('corsConfigurationSource'))
-
-    // ========== SERVICES ==========
-    genericUpdateService(GenericUpdateService)
 
 
 

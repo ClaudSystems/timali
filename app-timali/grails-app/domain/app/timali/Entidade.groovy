@@ -81,7 +81,6 @@ enum Classificacao {
 }
 
 
-@Resource(uri='/api/entidades', formats=['json'], readOnly = false)  // readOnly = false é CRÍTICO!
 class Entidade {
 
     String codigo
@@ -108,14 +107,14 @@ class Entidade {
     String telefone
     String telefone1
     String telefone2
-
+    Usuario usuario
     TipoDeIdentificacao tipoDeIdentificao
 
     static constraints = {
         codigo nullable: true, unique: true, maxSize: 6
         nome nullable: false, blank: false, maxSize: 255
         tipoDePessoa nullable: false
-
+        usuario nullable:true
         classificacao nullable: true
         dataDeEmissao nullable: true
         dataDeValidade nullable: true

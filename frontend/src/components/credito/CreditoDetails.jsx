@@ -29,7 +29,17 @@ const CreditoDetails = ({ id }) => {
     setLoading(true);
     try {
       const data = await creditoService.buscar(id);
-      setCredito(data);
+
+      // Se os totais vierem dentro de um objeto "totais", extrair
+      const creditoProcessado = {
+        ...data,
+        totalPrevisto: data.totais?.totalPrevisto ?? data.totalPrevisto ?? 0,
+        totalPago: data.totais?.totalPago ?? data.totalPago ?? 0,
+        totalEmDivida: data.totais?.saldoPendente ?? data.totalEmDivida ?? 0,
+      };
+
+      console.log('🔍 Crédito processado:', creditoProcessado);
+      setCredito(creditoProcessado);
     } catch (err) {
       setError(err.message || 'Erro ao carregar crédito');
     } finally {
@@ -66,8 +76,14 @@ const CreditoDetails = ({ id }) => {
 
   const gerarPDF = async () => {
     try {
-      const parcelas = await creditoService.listarParcelas(id);
-      pdfPlanoPagamentoService.gerarPlanoPagamento(credito, parcelas || []);
+      const response = await fetch(`http://localhost:8080/api/creditos/${id}/extrato`);
+      const data = await response.json();
+      console.log('📄 Dados do extrato:', data);
+      console.log('📄 Linhas:', data.linhas);
+      console.log('📄 Primeira linha:', data.linhas?.[0]);
+      console.log('📄 Totais:', data.totais);
+
+      extratoCreditoService.gerarExtrato(data);
     } catch (err) {
       console.error('Erro ao gerar PDF:', err);
     }
