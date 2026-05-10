@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Form, Input, Button, Card, Space, Switch, message,
-  Typography, Divider, Row, Col, Spin, Tabs, Select
+  Typography, Divider, Row, Col, Spin, Tabs, Select, Tag  // ADICIONADO Tag aqui
 } from 'antd';
 import {
   SaveOutlined, ArrowLeftOutlined, UserOutlined,

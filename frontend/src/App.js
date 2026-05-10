@@ -6,6 +6,7 @@ import ptPT from 'antd/locale/pt_PT';
 import UsuarioList from './components/usuario/UsuarioList';
 import UsuarioForm from './components/usuario/UsuarioForm';
 import RoleGroupList from './components/usuario/RoleGroupList';
+import RoleList from './components/usuario/RoleList';
 
 
 
@@ -100,7 +101,17 @@ const AppContent = () => {
               </PrivateRoute>
             }
           />
-
+            <Route path="/roles" element={<PrivateRoute><MainLayout><RoleList /></MainLayout></PrivateRoute>} />
+            <Route
+              path="/gruposRoles"
+              element={
+                <PrivateRoute>
+                  <MainLayout>
+                    <RoleGroupList />
+                  </MainLayout>
+                </PrivateRoute>
+              }
+            />
           <Route
             path="/definicoesCredito"
             element={

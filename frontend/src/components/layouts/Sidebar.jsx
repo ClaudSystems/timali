@@ -1,4 +1,3 @@
-// src/components/layouts/Sidebar.jsx
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu } from 'antd';
@@ -8,11 +7,12 @@ import {
   CreditCardOutlined,
   WalletOutlined,
   SettingOutlined,
-  LogoutOutlined,
+  UserOutlined,
+  UsergroupAddOutlined,
+  SafetyOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import { useSettings } from '../../contexts/SettingsContext';
-import logoDark from '../../assets/images/logo_dark.png'; // Opcional: logo para modo escuro
-import logoLight from '../../assets/images/logo_light.png'; // Opcional: logo para modo claro
 
 const { Sider } = Layout;
 
@@ -43,6 +43,28 @@ const Sidebar = () => {
       label: 'Caixa',
     },
     {
+      key: 'usuarios',
+      icon: <UserOutlined />,
+      label: 'Usuários',
+      children: [
+        {
+          key: '/usuarios',
+          icon: <UsergroupAddOutlined />,
+          label: 'Gestão de Usuários',
+        },
+        {
+          key: '/gruposRoles',
+          icon: <SafetyOutlined />,
+          label: 'Grupos de Roles',
+        },
+        {
+          key: '/roles',
+          icon: <KeyOutlined />,
+          label: 'Roles',
+        },
+      ],
+    },
+    {
       key: 'configuracoes',
       icon: <SettingOutlined />,
       label: 'Configurações',
@@ -69,6 +91,21 @@ const Sidebar = () => {
 
   const handleMenuClick = ({ key }) => {
     navigate(key);
+  };
+
+  // Função para encontrar submenus abertos baseado na rota atual
+  const getOpenKeys = () => {
+    const path = location.pathname;
+    const openKeys = [];
+
+    if (path.startsWith('/usuarios') || path === '/gruposRoles' || path === '/roles') {
+      openKeys.push('usuarios');
+    }
+    if (['/taxas', '/feriados', '/definicoesCredito', '/settings'].includes(path)) {
+      openKeys.push('configuracoes');
+    }
+
+    return openKeys;
   };
 
   return (
@@ -114,16 +151,15 @@ const Sidebar = () => {
         theme={darkMode ? "dark" : "light"}
         mode="inline"
         selectedKeys={[location.pathname]}
-        defaultOpenKeys={['configuracoes']}
+        defaultOpenKeys={getOpenKeys()}
         items={menuItems}
         onClick={handleMenuClick}
         style={{
           background: 'transparent',
           borderRight: 0,
         }}
-        // Personalização das cores baseado no tema
         {...(darkMode
-          ? {} // Mantém o tema dark padrão
+          ? {}
           : {
               style: {
                 background: 'transparent',

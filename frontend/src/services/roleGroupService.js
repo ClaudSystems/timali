@@ -6,6 +6,11 @@ const roleGroupService = {
     return response.data;
   },
 
+  getById: async (id) => {
+    const response = await api.get(`/roleGroups/${id}`);
+    return response.data;
+  },
+
   create: async (data) => {
     const response = await api.post('/roleGroups', data);
     return response.data;

@@ -11,7 +11,6 @@ class UrlMappings {
         "/api/entidades/verificarCodigo"(controller: "entidade", action: "verificarCodigo")
         "/api/entidades/search"(controller: "entidade", action: "search")
 
-        // CORREÇÃO: Usar resources para que o Grails chame os métodos do controller
         "/api/entidades"(resources: "entidade") {
             collection {
                 '/search'(controller: 'entidade', action: 'search')
@@ -25,14 +24,17 @@ class UrlMappings {
         "/api/usuarios/$id/roles"(controller: "usuario", action: "updateRoles") {
             constraints { id matches: /\d+/ }
         }
+        "/api/usuarios/$id/groups"(controller: "usuario", action: "updateGroups") {
+            constraints { id matches: /\d+/ }
+        }
         "/api/usuarios/$id/toggleStatus"(controller: "usuario", action: "toggleStatus") {
             constraints { id matches: /\d+/ }
         }
-        "/api/usuarios/$id"(controller: "usuario", namespace: 'api') {
+        "/api/usuarios/$id"(controller: "usuario") {
             action = [GET: "show", PUT: "update", PATCH: "update", DELETE: "delete"]
             constraints { id matches: /\d+/ }
         }
-        "/api/usuarios"(controller: "usuario", namespace: 'api') {
+        "/api/usuarios"(controller: "usuario") {
             action = [GET: "index", POST: "save"]
         }
 
@@ -40,11 +42,23 @@ class UrlMappings {
         // API - ROLES
         // ============================================================
         "/api/roles/initDefaults"(controller: "role", action: "initDefaults")
-        "/api/roles/$id"(controller: "role", namespace: 'api') {
+        "/api/roles/$id"(controller: "role") {
             action = [GET: "show", PUT: "update", PATCH: "update", DELETE: "delete"]
             constraints { id matches: /\d+/ }
         }
-        "/api/roles"(controller: "role", namespace: 'api') {
+        "/api/roles"(controller: "role") {
+            action = [GET: "index", POST: "save"]
+        }
+
+        // ============================================================
+        // API - ROLE GROUPS
+        // ============================================================
+        "/api/roleGroups/initDefaults"(controller: "roleGroup", action: "initDefaults")
+        "/api/roleGroups/$id"(controller: "roleGroup") {
+            action = [GET: "show", PUT: "update", PATCH: "update", DELETE: "delete"]
+            constraints { id matches: /\d+/ }
+        }
+        "/api/roleGroups"(controller: "roleGroup") {
             action = [GET: "index", POST: "save"]
         }
 
@@ -124,25 +138,6 @@ class UrlMappings {
         "/api/pagamentos"(controller: "pagamento") {
             action = [GET: "index", POST: "save"]
         }
-
-        // ============================================================
-// API - ROLE GROUPS (GRUPOS DE ROLES)
-// ============================================================
-        "/api/roleGroups/initDefaults"(controller: "roleGroup", namespace: 'api', action: "initDefaults")
-        "/api/roleGroups/$id"(controller: "roleGroup", namespace: 'api') {
-            action = [GET: "show", PUT: "update", PATCH: "update", DELETE: "delete"]
-            constraints { id matches: /\d+/ }
-        }
-        "/api/roleGroups"(controller: "roleGroup", namespace: 'api') {
-            action = [GET: "index", POST: "save"]
-        }
-
-// Adicionar esta rota para usuários
-        "/api/usuarios/$id/groups"(controller: "usuario", namespace: 'api', action: "updateGroups") {
-            constraints { id matches: /\d+/ }
-        }
-
-
 
         // ============================================================
         // API - SAÍDAS DE CAIXA
