@@ -542,21 +542,20 @@ const CreditoForm = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                name="dataEmissao"
-                label="Data de Concessão/Desembolso"
-                rules={[{ required: true, message: 'Selecione a data' }]}
-                extra="Data em que o crédito foi concedido."
-                getValueFromEvent={(date) => date}
-                getValueProps={(value) => ({ value: value || moment() })}
+                  name="dataEmissao"
+                  label="Data de Concessão/Desembolso"
+                  rules={[{ required: true, message: 'Selecione a data' }]}
+                  extra="Data em que o crédito foi concedido."
               >
-                <DatePicker
-                  style={{ width: '100%' }}
-                  format="DD/MM/YYYY"
-                  size="large"
-                  disabledDate={(current) => {
-                    return current && current.isAfter(moment(), 'day')
-                  }}
-                />
+                  <DatePicker
+                      style={{ width: '100%' }}
+                      format="DD/MM/YYYY"
+                      size="large"
+                      defaultValue={moment()}  // ← Adicione esta linha
+                      disabledDate={(current) => {
+                          return current && current.isAfter(moment(), 'day')
+                      }}
+                  />
               </Form.Item>
             </Col>
 

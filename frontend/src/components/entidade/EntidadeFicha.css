@@ -1,0 +1,20 @@
+/* frontend/src/components/entidade/EntidadeFicha.css */
+.entidade-ficha {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+@media print {
+  .entidade-ficha {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .entidade-ficha .ant-card {
+    border: 1px solid #d9d9d9 !important;
+    break-inside: avoid;
+  }
+
+  .entidade-ficha .ant-tag {
+    border: 1px solid #d9d9d9 !important;
+  }
+}

@@ -118,21 +118,33 @@ const EntidadeList = ({ onEdit, refreshTrigger }) => {
 
 const handleSubmit = async (values) => {
     try {
+        let entidadeId;
+
         if (modoEdicao && entidadeSelecionada) {
             await entidadeService.atualizar(entidadeSelecionada.id, values);
             message.success('Entidade atualizada!');
+            entidadeId = entidadeSelecionada.id;
         } else {
-            await entidadeService.criar(values);
+            const resultado = await entidadeService.criar(values);
             message.success('Entidade criada!');
+            entidadeId = resultado.id || resultado?.id;
         }
+
         closeModal();
         carregarEntidades();
+
+        // Passar apenas o ID - a view carrega os dados sozinha
+        if (entidadeId) {
+            console.log('🔍 Abrindo view para ID:', entidadeId);
+            setEntidadeSelecionada({ id: entidadeId });
+            setViewModalVisible(true);
+        }
+
     } catch (error) {
+        console.error('❌ Erro:', error);
         message.error('Erro ao salvar: ' + (error.message || 'Erro desconhecido'));
-        throw error;
     }
 };
-
   const columns = [
     {
       title: 'Código',

@@ -113,9 +113,9 @@ class CreditoController {
                     creditoId: parcela.credito?.id,
                     creditoNumero: parcela.credito?.numero,
                     cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.nuit,
+                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
                     telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
-                    documento: parcela.credito?.entidade?.numeroDeIdentificao,
+                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
                     saldoDevedor: parcela.credito?.totalEmDivida
             ]
         }
@@ -175,8 +175,8 @@ class CreditoController {
                     comprovativo: parcela.comprovativo,
                     pagoNoPrazo: parcela.pagoNoPrazo,
                     clienteNome: parcela.credito?.entidade?.nome,
-                    clienteTelefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
-                    clienteNuit: parcela.credito?.entidade?.nuit,
+                    clienteTelefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                    clienteNuit: parcela.credito?.entidade?.identificacao?.nuit,
                     creditoNumero: parcela.credito?.numero,
                     saldoDevedor: parcela.credito?.totalEmDivida
             ]
@@ -207,7 +207,7 @@ class CreditoController {
     }
 
     def buscarPagamentosPorCredito(Long creditoId) {
-        def credito = Credito.get(creditoId)
+        def entidade = Entidade.findById(params.id, [fetch: [identificacao: 'join', contacto: 'join', dadosPessoais: 'join']])
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
@@ -230,8 +230,8 @@ class CreditoController {
                     creditoId: credito.id,
                     creditoNumero: credito.numero,
                     cliente: credito.entidade?.nome,
-                    nuit: credito.entidade?.nuit,
-                    documento: credito.entidade?.numeroDeIdentificao,
+                    nuit: credito.entidade?.identificacao?.nuit,
+                    documento: credito.entidade?.identificacao?.numeroDeIdentificao,
                     saldoDevedor: credito.totalEmDivida
             ]
         }
@@ -261,8 +261,8 @@ class CreditoController {
                     creditoId: parcela.credito?.id,
                     creditoNumero: parcela.credito?.numero,
                     cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.nuit,
-                    documento: parcela.credito?.entidade?.numeroDeIdentificao,
+                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
+                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
                     saldoDevedor: parcela.credito?.totalEmDivida
             ]
         }
@@ -334,9 +334,9 @@ class CreditoController {
                     creditoId: parcela.credito?.id,
                     creditoNumero: parcela.credito?.numero,
                     cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.nuit,
-                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
-                    documento: parcela.credito?.entidade?.numeroDeIdentificao,
+                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
+                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
                     saldoDevedor: parcela.credito?.totalEmDivida,
                     valorTotalCredito: parcela.credito?.valorTotal
             ]
@@ -388,9 +388,9 @@ class CreditoController {
                     creditoId: parcela.credito?.id,
                     creditoNumero: parcela.credito?.numero,
                     cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.nuit,
-                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
-                    documento: parcela.credito?.entidade?.numeroDeIdentificao,
+                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
+                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
                     saldoDevedor: parcela.credito?.totalEmDivida
             ]
         }
@@ -465,13 +465,20 @@ class CreditoController {
         Long id = params.long('id')
 
         try {
-            def credito = Credito.get(id)
+            def credito = Credito.findById(params.id, [
+                    fetch: [
+                            'entidade': 'join',
+                            'entidade.identificacao': 'join',
+                            'entidade.contacto': 'join',
+                            'entidade.dadosPessoais': 'join'
+                    ]
+            ])
             if (!credito) {
                 render status: 404, text: [message: "Crédito não encontrado"] as JSON
                 return
             }
-            creditoService.recalcularTotais(credito)
-            creditoService.calcularMorasAntesDeExibir(credito)
+           // creditoService.recalcularTotais(credito)
+           // creditoService.calcularMorasAntesDeExibir(credito)
             // Logs de depuração
             println "=" * 60
             println "🔍 DEPURAÇÃO - Crédito ID: ${credito.id}"
@@ -796,8 +803,8 @@ class CreditoController {
                     numero: credito.numero,
                     cliente: credito.entidade?.nome,
                     codigo: credito.entidade?.codigo,
-                    nuit: credito.entidade?.nuit,
-                    documento: credito.entidade?.numeroDeIdentificao ?: credito.entidade?.nuit ?: '',
+                    nuit: credito.entidade?.identificacao?.nuit,
+                    documento: credito.entidade?.identificacao?.numeroDeIdentificao ?: credito.entidade?.identificacao?.nuit ?: '',
                     valorTotal: credito.valorTotal,
                     totalPago: credito.totalPago,
                     totalEmDivida: credito.totalEmDivida,
@@ -832,7 +839,7 @@ class CreditoController {
                     id: cliente.id,
                     codigo: cliente.codigo,
                     nome: cliente.nome,
-                    documento: cliente.numeroDeIdentificao ?: cliente.nuit ?: ''
+                    documento: cliente.identificacao?.numeroDeIdentificao ?: cliente.identificacao?.nuit ?: ''
             ]
         }
 
@@ -885,7 +892,15 @@ class CreditoController {
 
     @Transactional
     def invalidar(Long id) {
-        def credito = Credito.get(id)
+            def credito = Credito.findById(params.id, [
+        fetch: [
+            'entidade': 'join',
+            'entidade.identificacao': 'join',
+            'entidade.contacto': 'join',
+            'entidade.dadosPessoais': 'join'
+        ]
+    ])
+
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
@@ -902,7 +917,15 @@ class CreditoController {
 
     @Transactional
     def arquivar(Long id) {
-        def credito = Credito.get(id)
+            def credito = Credito.findById(params.id, [
+        fetch: [
+            'entidade': 'join',
+            'entidade.identificacao': 'join',
+            'entidade.contacto': 'join',
+            'entidade.dadosPessoais': 'join'
+        ]
+    ])
+
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
@@ -920,7 +943,14 @@ class CreditoController {
     def extrato(Long id) {
         println ">>> MÉTODO extrato() CHAMADO - ID: ${id} <<<"
 
-        def credito = Credito.get(id)
+        def credito = Credito.findById(params.id, [
+                fetch: [
+                        'entidade': 'join',
+                        'entidade.identificacao': 'join',
+                        'entidade.contacto': 'join',
+                        'entidade.dadosPessoais': 'join'
+                ]
+        ])
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return
@@ -991,9 +1021,9 @@ class CreditoController {
                 cliente: [
                         codigo: credito.entidade?.codigo,
                         nome: credito.entidade?.nome,
-                        documento: credito.entidade?.numeroDeIdentificao ?: credito.entidade?.nuit,
-                        telefone: credito.entidade?.telefone,
-                        tipoDocumento: 'BI'
+                        documento: credito.entidade?.identificacao?.numeroDeIdentificao ?: credito.entidade.identificacao?.nuit,
+                        telefone: credito.entidade?.contacto?.telefone,
+                            tipoDocumento: credito.entidade?.identificacao?.tipoDeIdentificao ?: 'BI'
                 ],
                 linhas: linhasExtrato,
                 totais: [
@@ -1073,7 +1103,15 @@ class CreditoController {
     }
 
     def recalcular(Long id) {
-        def credito = Credito.get(id)
+            def credito = Credito.findById(params.id, [
+        fetch: [
+            'entidade': 'join',
+            'entidade.identificacao': 'join',
+            'entidade.contacto': 'join',
+            'entidade.dadosPessoais': 'join'
+        ]
+    ])
+
         if (!credito) {
             render status: 404, text: [message: "Crédito não encontrado"] as JSON
             return

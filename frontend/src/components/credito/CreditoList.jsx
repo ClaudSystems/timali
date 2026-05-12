@@ -88,12 +88,24 @@ const CreditoList = () => {
       setBuscandoClientes(true);
       try {
           const token = localStorage.getItem('timali_token');
-          const response = await fetch(`http://localhost:8080/api/entidades/buscar?query=${encodeURIComponent(searchText)}`, {
+          // CORREÇÃO: usar /api/entidades/search?q= em vez de /api/entidades/buscar?query=
+          const response = await fetch(`http://localhost:8080/api/entidades/search?q=${encodeURIComponent(searchText)}`, {
               headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
           });
-          const data = await response.json();
 
-          const opcoes = data.map(cliente => ({
+          if (!response.ok) {
+              const errorText = await response.text();
+              console.error('Erro na busca:', response.status, errorText);
+              setClientes([]);
+              return;
+          }
+
+          const data = await response.json();
+          console.log('🔍 Resultado busca:', data); // Debug
+
+          const entidades = Array.isArray(data) ? data : [];
+
+          const opcoes = entidades.map(cliente => ({
               value: cliente.nome,
               label: (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -105,6 +117,7 @@ const CreditoList = () => {
           }));
           setClientes(opcoes);
       } catch (error) {
+          console.error('Erro ao buscar clientes:', error);
           setClientes([]);
       } finally {
           setBuscandoClientes(false);
