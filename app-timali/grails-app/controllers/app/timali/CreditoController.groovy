@@ -404,6 +404,7 @@ class CreditoController {
         def creditos = Credito.list(max: max, offset: offset, sort: 'dataEmissao', order: 'desc')
         // ===== CALCULAR MORAS PARA TODOS OS CRÉDITOS DA LISTA =====
         creditos.each { creditoService.calcularMorasAntesDeExibir(it) }
+        creditos.each { creditoService.recalcularTotais(it) }
         // ==========================================================
 
         def result = []
@@ -469,6 +470,7 @@ class CreditoController {
                 render status: 404, text: [message: "Crédito não encontrado"] as JSON
                 return
             }
+            creditoService.recalcularTotais(credito)
             creditoService.calcularMorasAntesDeExibir(credito)
             // Logs de depuração
             println "=" * 60

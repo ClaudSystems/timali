@@ -6,7 +6,7 @@ buildscript {
     dependencies {
         classpath "org.grails:grails-gradle-plugin:$grailsGradlePluginVersion"
         classpath "gradle.plugin.com.github.erdi.webdriver-binaries:webdriver-binaries-gradle-plugin:2.6"
-        classpath "org.grails.plugins:hibernate5:7.3.0"
+        classpath "org.grails.plugins:hibernate5:7.1.0"
         classpath "com.bertramlabs.plugins:asset-pipeline-gradle:3.4.7"
     }
 }
@@ -35,6 +35,9 @@ configurations {
 }
 
 dependencies {
+    // OTMIZAÇÃO DE BOOT: Indexador do Spring (Lugar Correto)
+    annotationProcessor "org.springframework:spring-context-indexer"
+
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
     // Micronaut BOM
@@ -44,7 +47,7 @@ dependencies {
     implementation "io.micronaut:micronaut-validation"
     compileOnly "io.micronaut:micronaut-inject-groovy"
 
-    // SPRING SECURITY - VERSÕES CORRETAS PARA GRAILS 5.3.5
+    // SPRING SECURITY - VERSÕES PARA GRAILS 5.3.5
     implementation "org.grails.plugins:spring-security-core:5.1.1"
     implementation "org.grails.plugins:spring-security-rest:3.0.1"
 
@@ -69,10 +72,11 @@ dependencies {
     implementation "org.hibernate:hibernate-core:5.6.11.Final"
     implementation "org.grails.plugins:events"
     implementation "org.grails.plugins:gsp"
+
     profile "org.grails.profiles:web"
 
     runtimeOnly "org.postgresql:postgresql:42.7.2"
-     runtimeOnly "org.apache.tomcat:tomcat-jdbc"
+    runtimeOnly "org.apache.tomcat:tomcat-jdbc"
     runtimeOnly "javax.xml.bind:jaxb-api:2.3.1"
     runtimeOnly "com.bertramlabs.plugins:asset-pipeline-grails:3.4.7"
 
@@ -88,12 +92,16 @@ bootRun {
             '-Dspring.output.ansi.enabled=always',
             '-noverify',
             '-XX:TieredStopAtLevel=1',
-            '-Xmx1024m')
+            '-Xmx2048m',
+            '-Xms1024m',
+            '-Dspring.main.lazy-initialization=true', // Inicialização preguiçosa para acelerar o boot
+            '-Djava.security.egd=file:/dev/./urandom'  // Melhora performance de criptografia (JWT)
+    )
     sourceResources sourceSets.main
     String springProfilesActive = 'spring.profiles.active'
     systemProperty springProfilesActive, System.getProperty(springProfilesActive)
 
-    // Configuração JWT via system property (solução garantida)
+    // Configuração JWT (Mantendo sua chave atual)
     systemProperty 'grails.plugin.springsecurity.rest.token.storage.jwt.secret', 'timali-super-secret-key-for-jwt-2026-xyz-must-be-long-enough-to-work'
 }
 

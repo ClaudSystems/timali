@@ -28,6 +28,8 @@ target/
 # OS generated files
 .DS_Store
 Thumbs.db
+data/documents/*
+!data/documents/.gitkeep
 
 # Coverage reports
 coverage/

@@ -1,147 +1,38 @@
+// grails-app/domain/app/timali/Entidade.groovy
 package app.timali
-
-import grails.rest.*
-
-enum TipoDePessoa {
-    CLIENTE,
-    ASSINANTE,
-    FORNECEDOR,
-    FUNCIONARIO
-}
-
-enum TipoDeIdentificacao {
-    BI("Bilhete de Identidade"),
-    PASSAPORTE("Passaporte"),
-    CEDULA("Cédula Pessoal"),
-    CARTAO_ELEITOR("Cartão de Eleitor"),
-    DIRE("DIRE"),
-    NUIT("NUIT"),
-    OUTRO("Outro")
-
-    String descricao
-
-    TipoDeIdentificacao(String descricao) {
-        this.descricao = descricao
-    }
-
-    String toString() { descricao }
-    String getKey() { name() }
-}
-
-enum EstadoCivil {
-    SOLTEIRO("Solteiro(a)"),
-    CASADO("Casado(a)"),
-    DIVORCIADO("Divorciado(a)"),
-    VIUVO("Viúvo(a)"),
-    UNIAO_ESTAVEL("União Estável"),
-    SEPARADO("Separado(a)")
-
-    String descricao
-
-    EstadoCivil(String descricao) {
-        this.descricao = descricao
-    }
-
-    String toString() { descricao }
-}
-
-enum Genero {
-    MASCULINO("Masculino"),
-    FEMININO("Feminino"),
-    OUTRO("Outro"),
-    PREFIRO_NAO_DIZER("Prefiro não dizer")
-
-    String descricao
-
-    Genero(String descricao) {
-        this.descricao = descricao
-    }
-
-    String toString() { descricao }
-}
-
-enum Classificacao {
-    NAO_CLASSIFICADO("Não Classificado"),
-    MAU("Mau"),
-    REGULAR("Regular"),
-    BOM("Bom"),
-    MUITO_BOM("Muito Bom"),
-    EXCELENTE("Excelente"),
-    VIP("VIP"),
-    PREMIUM("Premium")
-
-    String descricao
-
-    Classificacao(String descricao) {
-        this.descricao = descricao
-    }
-
-    String toString() { descricao }
-    String getKey() { name() }
-}
-
 
 class Entidade {
 
     String codigo
     String nome
     TipoDePessoa tipoDePessoa
-
     Boolean ativo = true
     Classificacao classificacao
-    Date dataDeEmissao
-    Date dataDeValidade
-    Date dataDeNascimento
     Boolean emDivida = false
-    String email
-    EstadoCivil estadoCivil
-    Genero genero
-    String localDeTrabalho
-    String nacionalidade
-    String arquivoDeIdentificao
-    String nuit
-    String numeroDeIdentificao
-    String profissao
-    String residencia
-
-    String telefone
-    String telefone1
-    String telefone2
     Usuario usuario
-    TipoDeIdentificacao tipoDeIdentificao
+
+    static hasMany = [documentos: Documento]
+    static hasOne = [identificacao: Identificacao, contacto: Contacto, dadosPessoais: DadosPessoais]
+
 
     static constraints = {
         codigo nullable: true, unique: true, maxSize: 6
         nome nullable: false, blank: false, maxSize: 255
         tipoDePessoa nullable: false
-        usuario nullable:true
+        usuario nullable: true
         classificacao nullable: true
-        dataDeEmissao nullable: true
-        dataDeValidade nullable: true
-        dataDeNascimento nullable: true
-        email nullable: true, email: true, maxSize: 255
-        estadoCivil nullable: true
-        genero nullable: true
-        localDeTrabalho nullable: true, maxSize: 255
-        nacionalidade nullable: true, maxSize: 100
-        arquivoDeIdentificao nullable: true, maxSize: 500
-        nuit nullable: true, maxSize: 20
-        numeroDeIdentificao nullable: true, maxSize: 50
-        profissao nullable: true, maxSize: 100
-        residencia nullable: true, maxSize: 500
-        telefone nullable: true, maxSize: 20
-        telefone1 nullable: true, maxSize: 20
-        telefone2 nullable: true, maxSize: 20
-        tipoDeIdentificao nullable: true
+        identificacao nullable: true
+        contacto nullable: true
+        dadosPessoais nullable: true
     }
 
     static mapping = {
         tipoDePessoa enumType: "string"
-        tipoDeIdentificao enumType: "string"
-        estadoCivil enumType: "string"
-        genero enumType: "string"
         classificacao enumType: "string"
         codigo index: 'idx_entidade_codigo'
+        identificacao column: 'identificacao_id'
+        contacto column: 'contacto_id'
+        dadosPessoais column: 'dados_pessoais_id'
     }
 
     String toString() {
@@ -186,14 +77,16 @@ class Entidade {
     }
 
     private String gerarCodigoSequencial() {
-        def ultimaEntidade = Entidade.createCriteria().get {
+        def resultado = Entidade.createCriteria().get {
             projections { max "codigo" }
         }
 
-        if (ultimaEntidade) {
+        String ultimoCodigo = resultado instanceof List ? resultado[0] : resultado?.toString()
+
+        if (ultimoCodigo && ultimoCodigo.isNumber()) {
             try {
-                int ultimoCodigo = Integer.parseInt(ultimaEntidade)
-                String novoCodigo = String.valueOf(ultimoCodigo + 1)
+                int ultimoNumero = Integer.parseInt(ultimoCodigo)
+                String novoCodigo = String.valueOf(ultimoNumero + 1)
                 if (!codigoExiste(novoCodigo)) {
                     return novoCodigo
                 }

@@ -1,38 +1,32 @@
-// grails-app/services/app/timali/RoleGroupService.groovy
 package app.timali
 
 import grails.gorm.transactions.Transactional
 import groovy.util.logging.Slf4j
-import grails.validation.ValidationException
 
 @Slf4j
 @Transactional
 class RoleGroupService {
 
     /**
-     * Lista todos os grupos de roles
+     * Lista todos os grupos
      */
     List<RoleGroup> list(Map params) {
-        def criteria = RoleGroup.createCriteria()
-
-        criteria.list(max: params.max ?: 10, offset: params.offset ?: 0) {
+        RoleGroup.createCriteria().list(params) {
             if (params.search) {
                 or {
                     ilike('name', "%${params.search}%")
                     ilike('description', "%${params.search}%")
                 }
             }
-            order(params.sort ?: 'name', params.order ?: 'asc')
+            order('name', 'asc')
         }
     }
 
     /**
-     * Conta total de grupos para paginação
+     * Conta total de grupos
      */
     int count(Map params = [:]) {
-        def criteria = RoleGroup.createCriteria()
-
-        criteria.count {
+        RoleGroup.createCriteria().count {
             if (params.search) {
                 or {
                     ilike('name', "%${params.search}%")
@@ -57,107 +51,175 @@ class RoleGroupService {
     }
 
     /**
-     * Salva ou atualiza um grupo de roles
+     * Salva um novo grupo
      */
-    RoleGroup save(Map data) {
-        RoleGroup group
+    Map save(Map data) {
+        log.info "Criando grupo: ${data.name}"
 
-        if (data.id) {
-            group = getById(data.id as Long)
-            if (!group) {
-                throw new RuntimeException("Grupo não encontrado")
-            }
-        } else {
-            group = new RoleGroup()
+        if (!data.name) {
+            return [success: false, error: "Nome é obrigatório"]
         }
 
-        group.name = data.name
-        group.description = data.description
-
-        // Atualiza as roles do grupo
-        if (data.roleIds) {
-            group.roles = Role.findAllByIdInList(data.roleIds as List<Long>)
+        if (RoleGroup.findByName(data.name)) {
+            return [success: false, error: "Grupo '${data.name}' já existe"]
         }
 
         try {
+            RoleGroup group = new RoleGroup(
+                    name: data.name,
+                    description: data.description
+            )
+
+            // Adiciona roles se fornecidas
+            if (data.roleIds) {
+                data.roleIds.each { roleId ->
+                    Role role = Role.get(roleId)
+                    if (role) {
+                        group.addToRoles(role)
+                    }
+                }
+            }
+
             group.save(flush: true, failOnError: true)
-            log.info "Grupo '${group.name}' salvo com sucesso"
-            return group
-        } catch (ValidationException e) {
-            log.error "Erro de validação ao salvar grupo: ${e.message}", e
-            throw e
+            log.info "Grupo criado: ${group.name}"
+            return [success: true, data: group]
+
         } catch (Exception e) {
-            log.error "Erro ao salvar grupo: ${e.message}", e
-            throw new RuntimeException("Falha ao salvar grupo: ${e.message}")
+            log.error "Erro ao criar grupo: ${e.message}", e
+            return [success: false, error: "Erro ao criar grupo: ${e.message}"]
+        }
+    }
+
+    /**
+     * Atualiza um grupo
+     */
+    Map update(Serializable id, Map data) {
+        log.info "Atualizando grupo ID: ${id}"
+
+        RoleGroup group = RoleGroup.get(id)
+        if (!group) {
+            return [success: false, error: "Grupo não encontrado"]
+        }
+
+        try {
+            if (data.name) group.name = data.name
+            if (data.description != null) group.description = data.description
+
+            // Atualiza roles
+            if (data.roleIds) {
+                group.roles.clear()
+                data.roleIds.each { roleId ->
+                    Role role = Role.get(roleId)
+                    if (role) {
+                        group.addToRoles(role)
+                    }
+                }
+            }
+
+            group.save(flush: true, failOnError: true)
+            log.info "Grupo atualizado: ${group.name}"
+            return [success: true, data: group]
+
+        } catch (Exception e) {
+            log.error "Erro ao atualizar grupo: ${e.message}", e
+            return [success: false, error: "Erro ao atualizar: ${e.message}"]
         }
     }
 
     /**
      * Deleta um grupo
      */
-    void delete(Serializable id) {
-        RoleGroup group = getById(id)
+    Map delete(Serializable id) {
+        log.info "Deletando grupo ID: ${id}"
+
+        RoleGroup group = RoleGroup.get(id)
         if (!group) {
-            throw new RuntimeException("Grupo não encontrado")
+            return [success: false, error: "Grupo não encontrado"]
         }
 
         try {
-            // Remove associações com usuários que usam este grupo
-            UsuarioRoleGroup.findAllByRoleGroup(group).each { ur ->
-                ur.delete(flush: true)
-            }
+            // Remove associações com usuários
+            UsuarioRoleGroup.removeAll(group)
 
             group.delete(flush: true)
-            log.info "Grupo '${group.name}' deletado com sucesso"
+            log.info "Grupo deletado: ${id}"
+            return [success: true]
+
         } catch (Exception e) {
             log.error "Erro ao deletar grupo: ${e.message}", e
-            throw new RuntimeException("Falha ao deletar grupo: ${e.message}")
+            return [success: false, error: "Erro ao deletar: ${e.message}"]
         }
     }
 
     /**
      * Cria grupos padrão do sistema
      */
-    List<RoleGroup> createDefaultGroups() {
+    Map createDefaultGroups() {
+        log.info "Criando grupos padrão..."
+
         def defaultGroups = [
                 [
                         name: 'ADMIN',
-                        description: 'Administrador do sistema - acesso total',
-                        roleNames: ['ROLE_ADMIN']
+                        description: 'Administrador do sistema - Acesso total',
+                        roleNames: [
+                                'ROLE_ADMIN', 'ROLE_USER', 'ROLE_GERENTE', 'ROLE_GESTOR', 'ROLE_CAIXA',
+                                'ROLE_ENTIDADE_CREATE', 'ROLE_ENTIDADE_READ', 'ROLE_ENTIDADE_UPDATE', 'ROLE_ENTIDADE_DELETE',
+                                'ROLE_CREDITO_CREATE', 'ROLE_CREDITO_READ', 'ROLE_CREDITO_UPDATE', 'ROLE_CREDITO_DELETE',
+                                'ROLE_CREDITO_RECALCULAR', 'ROLE_CREDITO_INVALIDAR', 'ROLE_CREDITO_ARQUIVAR',
+                                'ROLE_PAGAMENTO_CREATE', 'ROLE_PAGAMENTO_READ', 'ROLE_PAGAMENTO_DELETE', 'ROLE_PAGAMENTO_RECIBO',
+                                'ROLE_DEFINICAO_CREATE', 'ROLE_DEFINICAO_READ', 'ROLE_DEFINICAO_UPDATE', 'ROLE_DEFINICAO_DELETE',
+                                'ROLE_SAIDA_CAIXA_CREATE', 'ROLE_SAIDA_CAIXA_READ', 'ROLE_SAIDA_CAIXA_UPDATE', 'ROLE_SAIDA_CAIXA_DELETE',
+                                'ROLE_DIARIO_READ', 'ROLE_DIARIO_GERAR', 'ROLE_DIARIO_FECHAR', 'ROLE_DIARIO_REABRIR',
+                                'ROLE_SETTINGS_READ', 'ROLE_SETTINGS_UPDATE',
+                                'ROLE_USUARIO_CREATE', 'ROLE_USUARIO_READ', 'ROLE_USUARIO_UPDATE', 'ROLE_USUARIO_DELETE',
+                                'ROLE_GROUP_CREATE', 'ROLE_GROUP_READ', 'ROLE_GROUP_UPDATE', 'ROLE_GROUP_DELETE'
+                        ]
                 ],
                 [
                         name: 'GERENTE',
-                        description: 'Gerente - gestão de créditos e relatórios',
-                        roleNames: ['ROLE_GERENTE']
+                        description: 'Gerente - Gestão de créditos e relatórios',
+                        roleNames: [
+                                'ROLE_USER', 'ROLE_GERENTE',
+                                'ROLE_ENTIDADE_CREATE', 'ROLE_ENTIDADE_READ', 'ROLE_ENTIDADE_UPDATE',
+                                'ROLE_CREDITO_CREATE', 'ROLE_CREDITO_READ', 'ROLE_CREDITO_UPDATE',
+                                'ROLE_CREDITO_RECALCULAR', 'ROLE_CREDITO_INVALIDAR', 'ROLE_CREDITO_ARQUIVAR',
+                                'ROLE_PAGAMENTO_READ', 'ROLE_PAGAMENTO_RECIBO',
+                                'ROLE_DEFINICAO_CREATE', 'ROLE_DEFINICAO_READ', 'ROLE_DEFINICAO_UPDATE',
+                                'ROLE_SAIDA_CAIXA_READ',
+                                'ROLE_DIARIO_READ', 'ROLE_DIARIO_GERAR',
+                                'ROLE_SETTINGS_READ'
+                        ]
                 ],
                 [
                         name: 'GESTOR',
-                        description: 'Gestor - aprovação e supervisão',
-                        roleNames: ['ROLE_GESTOR']
+                        description: 'Gestor - Supervisão e aprovação',
+                        roleNames: [
+                                'ROLE_USER', 'ROLE_GESTOR',
+                                'ROLE_ENTIDADE_READ',
+                                'ROLE_CREDITO_READ', 'ROLE_CREDITO_UPDATE', 'ROLE_CREDITO_INVALIDAR',
+                                'ROLE_PAGAMENTO_CREATE', 'ROLE_PAGAMENTO_READ', 'ROLE_PAGAMENTO_RECIBO',
+                                'ROLE_DEFINICAO_READ',
+                                'ROLE_SAIDA_CAIXA_CREATE', 'ROLE_SAIDA_CAIXA_READ', 'ROLE_SAIDA_CAIXA_UPDATE',
+                                'ROLE_DIARIO_READ', 'ROLE_DIARIO_GERAR', 'ROLE_DIARIO_FECHAR',
+                                'ROLE_SETTINGS_READ'
+                        ]
                 ],
                 [
                         name: 'CAIXA',
-                        description: 'Caixa - operações de pagamento',
-                        roleNames: ['ROLE_CAIXA']
-                ],
-                [
-                        name: 'SUPER_USUARIO',
-                        description: 'Super usuário - acesso a múltiplas funções',
-                        roleNames: ['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_GESTOR', 'ROLE_CAIXA']
-                ],
-                [
-                        name: 'GERENTE_CAIXA',
-                        description: 'Gerente com acesso ao caixa',
-                        roleNames: ['ROLE_GERENTE', 'ROLE_CAIXA']
-                ],
-                [
-                        name: 'GESTOR_CAIXA',
-                        description: 'Gestor com acesso ao caixa',
-                        roleNames: ['ROLE_GESTOR', 'ROLE_CAIXA']
+                        description: 'Caixa - Operações de pagamento',
+                        roleNames: [
+                                'ROLE_USER', 'ROLE_CAIXA',
+                                'ROLE_ENTIDADE_READ',
+                                'ROLE_CREDITO_READ',
+                                'ROLE_PAGAMENTO_CREATE', 'ROLE_PAGAMENTO_READ', 'ROLE_PAGAMENTO_RECIBO',
+                                'ROLE_SAIDA_CAIXA_CREATE', 'ROLE_SAIDA_CAIXA_READ',
+                                'ROLE_DIARIO_READ', 'ROLE_DIARIO_GERAR',
+                                'ROLE_SETTINGS_READ'
+                        ]
                 ]
         ]
 
-        List<RoleGroup> groups = []
+        int created = 0
         defaultGroups.each { groupData ->
             if (!RoleGroup.findByName(groupData.name)) {
                 RoleGroup group = new RoleGroup(
@@ -165,24 +227,24 @@ class RoleGroupService {
                         description: groupData.description
                 )
 
-                // Adiciona as roles ao grupo
                 groupData.roleNames.each { roleName ->
-                    def role = Role.findByAuthority(roleName)
+                    Role role = Role.findByAuthority(roleName)
                     if (role) {
                         group.addToRoles(role)
                     }
                 }
 
                 group.save(flush: true, failOnError: true)
-                groups << group
+                created++
             }
         }
 
-        return groups
+        log.info "Grupos padrão criados: ${created}"
+        return [success: true, message: "${created} grupos criados"]
     }
 
     /**
-     * Converte para Map para resposta JSON
+     * Converte grupo para Map
      */
     Map toMap(RoleGroup group) {
         if (!group) return [:]
@@ -191,12 +253,7 @@ class RoleGroupService {
                 id: group.id,
                 name: group.name,
                 description: group.description,
-                roles: group.roles?.collect { role ->
-                    [
-                            id: role.id,
-                            authority: role.authority
-                    ]
-                } ?: [],
+                roles: group.roles?.collect { [id: it.id, authority: it.authority] } ?: [],
                 totalRoles: group.roles?.size() ?: 0
         ]
     }

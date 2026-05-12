@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Form, Input, Button, Card, Space, Switch, message,
-  Typography, Divider, Row, Col, Spin, Tabs, Select, Tag  // ADICIONADO Tag aqui
+  Typography, Divider, Row, Col, Spin, Tabs, Select, Tag
 } from 'antd';
 import {
   SaveOutlined, ArrowLeftOutlined, UserOutlined,
@@ -34,28 +34,56 @@ const UsuarioForm = () => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
+      console.log('🔄 Carregando dados...', isEditing ? `Editando ID: ${id}` : 'Novo usuário');
+
+      // Carregar roles e grupos disponíveis
       const [rolesData, groupsData] = await Promise.all([
         roleService.list(),
         roleGroupService.list()
       ]);
 
-      setRoles(Array.isArray(rolesData) ? rolesData : rolesData.data || []);
-      setGroups(Array.isArray(groupsData) ? groupsData : groupsData.data || []);
+      console.log('📦 Roles carregadas:', rolesData);
+      console.log('📦 Grupos carregados:', groupsData);
+
+      const rolesList = Array.isArray(rolesData) ? rolesData : rolesData.data || [];
+      const groupsList = Array.isArray(groupsData) ? groupsData : groupsData.data || [];
+
+      setRoles(rolesList);
+      setGroups(groupsList);
 
       if (isEditing) {
+        // Carregar dados do usuário para edição
+        console.log('🔍 Buscando usuário ID:', id);
         const userData = await usuarioService.getById(id);
+        console.log('👤 Dados do usuário:', userData);
+
+        // Preencher formulário com dados do usuário
         form.setFieldsValue({
           username: userData.username,
-          enabled: userData.enabled,
-          accountExpired: userData.accountExpired,
-          accountLocked: userData.accountLocked,
-          passwordExpired: userData.passwordExpired
+          enabled: userData.enabled !== undefined ? userData.enabled : true,
+          accountExpired: userData.accountExpired || false,
+          accountLocked: userData.accountLocked || false,
+          passwordExpired: userData.passwordExpired || false
         });
-        setSelectedRoles(userData.roles?.map(r => r.id) || []);
-        setSelectedGroups(userData.groups?.map(g => g.id) || []);
+
+        // Definir roles e grupos selecionados
+        const userRoles = userData.roles?.map(r => r.id) || [];
+        const userGroups = userData.groups?.map(g => g.id) || [];
+
+        console.log('🔑 Roles do usuário:', userRoles);
+        console.log('👥 Grupos do usuário:', userGroups);
+
+        setSelectedRoles(userRoles);
+        setSelectedGroups(userGroups);
+      } else {
+        // Novo usuário - limpar formulário
+        form.resetFields();
+        setSelectedRoles([]);
+        setSelectedGroups([]);
       }
     } catch (error) {
-      message.error('Erro ao carregar dados');
+      console.error('❌ Erro ao carregar dados:', error);
+      message.error('Erro ao carregar dados do usuário');
     } finally {
       setLoading(false);
     }
@@ -72,21 +100,30 @@ const UsuarioForm = () => {
         passwordExpired: values.passwordExpired || false
       };
 
-      if (values.password) {
+      // Só enviar senha se foi preenchida
+      if (values.password && values.password.trim() !== '') {
         payload.password = values.password;
       } else if (!isEditing) {
-        payload.password = 'temp123';
+        payload.password = 'temp123'; // Senha padrão para novo usuário
       }
+
+      console.log('💾 Salvando payload:', payload);
 
       let userData;
       if (isEditing) {
         userData = await usuarioService.update(id, payload);
+        console.log('✅ Usuário atualizado:', userData);
       } else {
         userData = await usuarioService.create(payload);
+        console.log('✅ Usuário criado:', userData);
       }
 
       const userId = userData.id || id;
+      console.log('🔄 Atualizando permissões para userId:', userId);
+      console.log('👥 Grupos selecionados:', selectedGroups);
+      console.log('🔑 Roles selecionadas:', selectedRoles);
 
+      // Atualizar grupos e roles
       await Promise.all([
         usuarioService.updateGroups(userId, selectedGroups),
         usuarioService.updateRoles(userId, selectedRoles)
@@ -95,7 +132,8 @@ const UsuarioForm = () => {
       message.success(`Usuário ${isEditing ? 'atualizado' : 'criado'} com sucesso!`);
       navigate('/usuarios');
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Erro ao salvar usuário';
+      console.error('❌ Erro ao salvar:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Erro ao salvar usuário';
       message.error(errorMsg);
     } finally {
       setSaving(false);
@@ -103,10 +141,12 @@ const UsuarioForm = () => {
   };
 
   const handleRoleSelect = (roleIds) => {
+    console.log('🔑 Roles alteradas:', roleIds);
     setSelectedRoles(roleIds);
   };
 
   const handleGroupSelect = (groupIds) => {
+    console.log('👥 Grupos alterados:', groupIds);
     setSelectedGroups(groupIds);
   };
 
@@ -161,10 +201,13 @@ const UsuarioForm = () => {
             <Col xs={24} md={12}>
               <Form.Item
                 name="password"
-                label={isEditing ? 'Nova Senha (deixe em branco para manter)' : 'Senha'}
+                label={isEditing ? 'Nova Senha (deixe em branco para manter a atual)' : 'Senha'}
                 rules={!isEditing ? [{ required: true, message: 'Senha é obrigatória' }] : []}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="Senha" />
+                <Input.Password
+                  prefix={<LockOutlined />}
+                  placeholder={isEditing ? "Nova senha (opcional)" : "Senha"}
+                />
               </Form.Item>
             </Col>
           </Row>

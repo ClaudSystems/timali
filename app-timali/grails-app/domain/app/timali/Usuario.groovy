@@ -41,9 +41,15 @@ class Usuario implements Serializable {
     }
 
     protected void encodePassword() {
+        // CORREÇÃO: Verificar se springSecurityService existe
+        // e se a senha já não está codificada
         if (springSecurityService) {
-            password = springSecurityService.encodePassword(password)
+            // Só codifica se a senha não começa com { (ou seja, já codificada)
+            if (password && !password.startsWith('{')) {
+                password = springSecurityService.encodePassword(password)
+            }
         }
+        // Se springSecurityService não existe, mantém a senha como está
     }
 
     static transients = ['springSecurityService']

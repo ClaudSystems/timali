@@ -171,6 +171,20 @@ class UrlMappings {
         }
 
         // ============================================================
+        // ROTAS DO DOCUMENTO
+        // ============================================================
+        "/api/documentos/upload"(controller: "documento", action: "upload")
+        "/api/documentos/$id/download"(controller: "documento", action: "download") {
+            constraints { id matches: /\d+/ }
+        }
+        "/api/documentos/$id"(controller: "documento") {
+            action = [GET: "show", DELETE: "delete"]
+            constraints { id matches: /\d+/ }
+        }
+        "/api/documentos"(controller: "documento") {
+            action = [GET: "index"]
+        }
+        // ============================================================
         // ROTAS DO REACT (SPA)
         // ============================================================
         "/"(controller: "react", action: "index")

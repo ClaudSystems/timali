@@ -7,6 +7,24 @@ grails:
     reactor:
       events: false
 
+  # 👇 APENAS ESTA SEÇÃO FOI ADICIONADA - CONFIGURAÇÃO CORS
+  cors:
+    enabled: true
+    mappings:
+      - pathPattern: "/api/**"
+        allowedOrigins:
+          - "http://localhost:3000"
+        allowedMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+        allowedHeaders:
+          - "*"
+        allowCredentials: true
+
   plugin:
     springsecurity:
       userLookup:
