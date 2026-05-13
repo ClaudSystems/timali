@@ -15,6 +15,15 @@ import {
   CalculatorOutlined,
 } from '@ant-design/icons';
 
+// Import das imagens do dashboard
+import imgSimulador from '../assets/images/dashboard/simulador';
+import imgCredito from '../assets/images/dashboard/credito';
+import imgEntidade from '../assets/images/dashboard/entidade';
+import imgTipoCredito from '../assets/images/dashboard/tipoCredito';
+import imgTaxas from '../assets/images/dashboard/taxasJuros';
+import imgFeriados from '../assets/images/dashboard/feriados';
+import imgSettings from '../assets/images/dashboard/settings';
+
 const { Title, Text } = Typography;
 
 const DashboardPage = () => {
@@ -34,6 +43,7 @@ const DashboardPage = () => {
       path: '/simulador',
       color: 'linear-gradient(135deg, #fff0f6 0%, #ffadd2 100%)',
       borderColor: '#eb2f96',
+      image: imgSimulador,
       featured: true, // Card em destaque
     },
     {
@@ -43,6 +53,7 @@ const DashboardPage = () => {
       path: '/creditos',
       color: '#f6ffed',
       borderColor: '#52c41a',
+      image: imgCredito,
     },
     {
       title: 'Entidades',
@@ -51,6 +62,7 @@ const DashboardPage = () => {
       path: '/entidades',
       color: '#e6f7ff',
       borderColor: '#1890ff',
+      image: imgEntidade,
     },
     {
       title: 'Def. Crédito',
@@ -59,6 +71,7 @@ const DashboardPage = () => {
       path: '/definicoesCredito',
       color: '#e6fffb',
       borderColor: '#13c2c2',
+      image: imgTipoCredito,
     },
     {
       title: 'Taxas',
@@ -67,6 +80,7 @@ const DashboardPage = () => {
       path: '/taxas',
       color: '#fffbe6',
       borderColor: '#faad14',
+      image: imgTaxas,
     },
     {
       title: 'Feriados',
@@ -75,6 +89,7 @@ const DashboardPage = () => {
       path: '/feriados',
       color: '#f9f0ff',
       borderColor: '#722ed1',
+      image: imgFeriados,
     },
     {
       title: 'Configurações',
@@ -83,6 +98,7 @@ const DashboardPage = () => {
       path: '/settings',
       color: '#fff7e6',
       borderColor: '#ff7a00',
+      image: imgSettings,
     },
   ];
 
@@ -164,6 +180,8 @@ const DashboardPage = () => {
               hoverable
               style={{
                 height: '100%',
+                position: 'relative',
+                overflow: 'hidden',
                 borderLeft: card.featured ? `6px solid ${card.borderColor}` : `4px solid ${card.borderColor}`,
                 background: card.color,
                 transition: 'all 0.3s',
@@ -184,7 +202,23 @@ const DashboardPage = () => {
                   : '0 2px 8px rgba(0,0,0,0.09)';
               }}
             >
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              {/* Imagem de fundo */}
+              {card.image && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    backgroundImage: `url(${card.image})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    opacity: 0.15,
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              
+              {/* Conteúdo principal */}
+              <Space direction="vertical" size="middle" style={{ width: '100%', position: 'relative', zIndex: 1 }}>
                 <div style={{ textAlign: 'center' }}>
                   {card.icon}
                 </div>
