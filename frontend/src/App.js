@@ -30,6 +30,8 @@ import SettingsPage from './pages/SettingsPage';
 import Caixa from './components/caixa/Caixa';
 import HistoricoRecibos from './components/caixa/HistoricoRecibos';
 import EntidadeList from './components/entidade/EntidadeList';
+import SimuladorCredito from './components/credito/SimuladorCredito';
+import RelatoriosPage from './pages/RelatoriosPage';
 
 // Componente de Rota Protegida
 const PrivateRoute = ({ children }) => {
@@ -206,6 +208,28 @@ const AppContent = () => {
               <PrivateRoute>
                 <MainLayout>
                   <EntidadeList />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/simulador"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <SimuladorCredito />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+
+          <Route
+            path="/relatorios"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <RelatoriosPage />
                 </MainLayout>
               </PrivateRoute>
             }

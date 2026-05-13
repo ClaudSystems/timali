@@ -18,7 +18,8 @@ import {
   Alert,
   Space,
   ConfigProvider,
-  Typography
+  Typography,
+  theme
 } from 'antd';
 import { SearchOutlined, SaveOutlined, RollbackOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import creditoService from '../../services/creditoService';
@@ -30,8 +31,10 @@ moment.locale('pt-br');
 
 const { TextArea } = Input;
 const { Text } = Typography;
+const { useToken } = theme;
 
 const CreditoForm = () => {
+  const { token } = useToken();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -306,7 +309,7 @@ const CreditoForm = () => {
   return (
     <ConfigProvider locale={ptBR}>
       <Card
-        title="Novo Crédito"
+        title={clienteSelecionado ? `Novo Crédito para: ${clienteSelecionado.nome}` : "Novo Crédito"}
         style={{ maxWidth: 1200, margin: '0 auto' }}
         extra={
           <Space>
@@ -337,265 +340,301 @@ const CreditoForm = () => {
             percentualDeJuros: 0,
             percentualJurosDeDemora: 0
           }}
+          style={{ marginTop: -8 }}
         >
           {/* ============================================================ */}
           {/* SEÇÃO 1: BUSCA DO CLIENTE                                   */}
           {/* ============================================================ */}
-          <Divider orientation="left">Cliente</Divider>
-
-          <Form.Item
-            label="Buscar Cliente"
-            required
-            tooltip="Digite pelo menos 2 caracteres para buscar"
-          >
-            <Select
-              showSearch
-              placeholder="Digite o código ou nome do cliente"
-              onSearch={buscarClientes}
-              onSelect={handleSelectCliente}
-              filterOption={false}
-              notFoundContent={searching ? <Spin size="small" /> : 'Nenhum cliente encontrado'}
-              options={opcoesClientes}
-              suffixIcon={<SearchOutlined />}
-              size="large"
-            />
-          </Form.Item>
-
-          {/* Dados do cliente (visualização) */}
-          {clienteSelecionado && (
-            <Alert
-              message="Cliente Selecionado"
-              description={
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Text type="secondary">Código:</Text><br />
-                    <Text strong>{clienteSelecionado.codigo || 'N/A'}</Text>
-                  </Col>
-                  <Col span={8}>
-                    <Text type="secondary">Nome:</Text><br />
-                    <Text strong>{clienteSelecionado.nome || 'N/A'}</Text>
-                  </Col>
-                  <Col span={8}>
-                    <Text type="secondary">Documento:</Text><br />
-                    <Text strong>{clienteSelecionado.numero_de_identificao || clienteSelecionado.nuit || 'N/A'}</Text>
-                  </Col>
-                </Row>
-              }
-              type="success"
-              showIcon
-              style={{ marginBottom: 24 }}
-            />
-          )}
+          <Row gutter={[16, 0]} align="middle" style={{ marginBottom: 16 }}>
+            <Col span={3}>
+              <Text strong style={{ fontSize: 14 }}>👤 Cliente:</Text>
+            </Col>
+            <Col span={21}>
+              <Select
+                showSearch
+                placeholder="Digite o código ou nome do cliente"
+                onSearch={buscarClientes}
+                onSelect={handleSelectCliente}
+                filterOption={false}
+                notFoundContent={searching ? <Spin size="small" /> : 'Nenhum cliente encontrado'}
+                options={opcoesClientes}
+                suffixIcon={<SearchOutlined />}
+                size="large"
+                style={{ width: '100%' }}
+              />
+            </Col>
+          </Row>
 
           <Form.Item name="entidadeId" hidden>
             <Input />
           </Form.Item>
 
           {/* ============================================================ */}
-          {/* SEÇÃO 2: CONFIGURAÇÃO DO CRÉDITO                            */}
+          {/* SEÇÃO 2: FORMULÁRIO PRINCIPAL (2 COLUNAS)                   */}
           {/* ============================================================ */}
-          <Divider orientation="left">Configuração do Crédito</Divider>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                label="Usar Definição Pré-configurada"
-                valuePropName="checked"
-                tooltip="Ative para usar uma definição já cadastrada"
+          <Row gutter={24}>
+            {/* COLUNA ESQUERDA: CAMPOS DE ENTRADA */}
+            <Col span={14}>
+              <Card 
+                title="📝 Dados do Crédito" 
+                size="small"
+                style={{ backgroundColor: token.colorBgLayout }}
               >
-                <Switch
-                  checked={usarDefinicao}
-                  onChange={handleUsarDefinicaoChange}
-                  checkedChildren="Sim"
-                  unCheckedChildren="Não - Personalizar"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {usarDefinicao && (
-            <Form.Item
-              name="definicaoCreditoId"
-              label="Definição de Crédito"
-              rules={[{ required: usarDefinicao, message: 'Selecione uma definição' }]}
-            >
-              <Select
-                placeholder="Selecione uma definição de crédito"
-                onChange={handleDefinicaoChange}
-                loading={loadingDefinicoes}
-                options={opcoesDefinicoes}
-                size="large"
-              />
-            </Form.Item>
-          )}
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                name="valorConcedido"
-                label="Valor Concedido (MT)"
-                rules={[{ required: true, message: 'Informe o valor' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  precision={2}
-                  size="large"
-                  placeholder="0,00"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col span={8}>
-              <Form.Item
-                name="numeroDePrestacoes"
-                label="Número de Prestações"
-                rules={[{ required: true, message: 'Informe o número de prestações' }]}
-                extra={definicaoSelecionada ? `Máximo permitido: ${definicaoSelecionada.numeroDePrestacoes}` : ''}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  max={definicaoSelecionada?.numeroDePrestacoes || 360}
-                  size="large"
-                  placeholder="12"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col span={8}>
-              <Form.Item
-                name="periodicidade"
-                label="Periodicidade"
-                rules={[{ required: true, message: 'Selecione a periodicidade' }]}
-              >
-                <Select disabled={usarDefinicao} size="large" placeholder="Selecione a periodicidade">
-                  <Select.Option value="MENSAL">Mensal</Select.Option>
-                  <Select.Option value="QUINZENAL">Quinzenal</Select.Option>
-                  <Select.Option value="SEMANAL">Semanal</Select.Option>
-                  <Select.Option value="DIARIO">Diário</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                name="percentualDeJuros"
-                label="Taxa de Juros (%)"
-                rules={[{ required: true, message: 'Informe a taxa de juros' }]}
-                tooltip="Percentual de juros ao mês"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  max={100}
-                  precision={4}
-                  disabled={usarDefinicao}
-                  size="large"
-                  placeholder="0,00"
-                />
-              </Form.Item>
-            </Col>
-
-            <Col span={8}>
-              <Form.Item
-                name="formaDeCalculo"
-                label="Forma de Cálculo"
-                rules={[{ required: true, message: 'Selecione a forma de cálculo' }]}
-              >
-                <Select disabled={usarDefinicao} size="large" placeholder="Selecione a forma de cálculo">
-                  <Select.Option value="TAXA_FIXA">Taxa Fixa</Select.Option>
-                  <Select.Option value="PMT">PMT - Prestações Fixas</Select.Option>
-                  <Select.Option value="JUROS_SIMPLES">Juros Simples</Select.Option>
-                  <Select.Option value="JUROS_COMPOSTOS">Juros Compostos</Select.Option>
-                  <Select.Option value="SAC">SAC - Amortização Constante</Select.Option>
-                </Select>
-              </Form.Item>
-            </Col>
-
-            <Col span={8}>
-              <Form.Item
-                name="percentualJurosDeDemora"
-                label="Juros de Demora (%)"
-                tooltip="Percentual de juros por atraso"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  max={100}
-                  precision={4}
-                  disabled={usarDefinicao}
-                  size="large"
-                  placeholder="0,00"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* ============================================================ */}
-          {/* SEÇÃO 3: DATA DE CONCESSÃO                                  */}
-          {/* ============================================================ */}
-          <Divider orientation="left">Data de Concessão</Divider>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                  name="dataEmissao"
-                  label="Data de Concessão/Desembolso"
-                  rules={[{ required: true, message: 'Selecione a data' }]}
-                  extra="Data em que o crédito foi concedido."
-              >
-                  <DatePicker
-                      style={{ width: '100%' }}
-                      format="DD/MM/YYYY"
-                      size="large"
-                      defaultValue={moment()}  // ← Adicione esta linha
-                      disabledDate={(current) => {
-                          return current && current.isAfter(moment(), 'day')
-                      }}
+                {/* Definição de Crédito */}
+                <Form.Item
+                  label="Def. De crédito"
+                  name="definicaoCreditoId"
+                  rules={[{ required: usarDefinicao, message: 'Selecione uma definição' }]}
+                >
+                  <Select
+                    placeholder="Selecione uma definição de crédito"
+                    onChange={handleDefinicaoChange}
+                    loading={loadingDefinicoes}
+                    options={opcoesDefinicoes}
+                    size="large"
+                    disabled={!usarDefinicao}
                   />
-              </Form.Item>
+                </Form.Item>
+
+                {/* Data de Concessão */}
+                <Form.Item
+                  label="Data de concessão"
+                  name="dataEmissao"
+                  rules={[{ required: true, message: 'Selecione a data' }]}
+                >
+                  <DatePicker
+                    style={{ width: '100%' }}
+                    format="DD/MM/YYYY"
+                    size="large"
+                    defaultValue={moment()}
+                    disabledDate={(current) => {
+                      return current && current.isAfter(moment(), 'day')
+                    }}
+                  />
+                </Form.Item>
+
+                {/* Valor Creditado */}
+                <Form.Item
+                  label="Valor Creditado (MT)"
+                  name="valorConcedido"
+                  rules={[{ required: true, message: 'Informe o valor' }]}
+                >
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    min={0}
+                    precision={2}
+                    size="large"
+                    placeholder="0,00"
+                    formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={value => value.replace(/\,/g, '')}
+                  />
+                </Form.Item>
+
+                {/* Número de Prestações */}
+                <Form.Item
+                  label="Número de Prestações"
+                  name="numeroDePrestacoes"
+                  rules={[{ required: true, message: 'Informe o número de prestações' }]}
+                >
+                  <InputNumber
+                    style={{ width: '100%' }}
+                    min={1}
+                    max={definicaoSelecionada?.numeroDePrestacoes || 360}
+                    size="large"
+                    placeholder="12"
+                  />
+                </Form.Item>
+
+                <Divider style={{ margin: '12px 0' }} />
+
+                {/* Botão Salvar */}
+                <Form.Item>
+                  <Button
+                    type="primary"
+                    icon={<SaveOutlined />}
+                    onClick={() => form.submit()}
+                    loading={loading}
+                    size="large"
+                    block
+                  >
+                    💾 Salvar Crédito
+                  </Button>
+                </Form.Item>
+              </Card>
             </Col>
 
-            <Col span={12}>
-              <Alert
-                message="Como funciona?"
-                description="O primeiro vencimento será calculado automaticamente baseado na data de concessão + periodicidade selecionada."
-                type="info"
-                showIcon
-                icon={<InfoCircleOutlined />}
-              />
-            </Col>
-          </Row>
-
-          {/* ============================================================ */}
-          {/* SEÇÃO 4: INFORMAÇÕES ADICIONAIS                             */}
-          {/* ============================================================ */}
-          <Divider orientation="left">Informações Adicionais</Divider>
-
-          <Form.Item name="descricao" label="Descrição/Observações">
-            <TextArea
-              rows={3}
-              placeholder="Observações sobre este crédito (opcional)"
-              maxLength={500}
-              showCount
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="ignorarPagamentosNoPrazo"
-                label="Ignorar pagamentos no prazo para cálculo de mora"
-                valuePropName="checked"
-                tooltip="Se ativo, calcula mora sobre o valor total da parcela mesmo com pagamentos parciais"
+            {/* COLUNA DIREITA: INFORMAÇÕES DA DEFINIÇÃO */}
+            <Col span={10}>
+              <Card 
+                title="ℹ️ Informações da Definição" 
+                size="small"
+                style={{ backgroundColor: token.colorInfoBg }}
               >
-                <Switch checkedChildren="Sim" unCheckedChildren="Não" />
-              </Form.Item>
+                <div style={{ padding: '8px 0' }}>
+                  <Row gutter={[8, 12]}>
+                    <Col span={12}>
+                      <Text type="secondary">Juros (%):</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ fontSize: 16, color: '#1890ff' }}>
+                        {definicaoSelecionada?.percentualDeJuros || 0}%
+                      </Text>
+                    </Col>
+
+                    <Col span={12}>
+                      <Text type="secondary">Juros de Mora (%):</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ fontSize: 16, color: '#fa8c16' }}>
+                        {definicaoSelecionada?.percentualJurosDeDemora || 0}%
+                      </Text>
+                    </Col>
+
+                    <Col span={12}>
+                      <Text type="secondary">Nº máx. prestações:</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ fontSize: 16 }}>
+                        {definicaoSelecionada?.numeroDePrestacoes || '-'}
+                      </Text>
+                    </Col>
+
+                    <Col span={12}>
+                      <Text type="secondary">Forma de cálculo:</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ fontSize: 14 }}>
+                        {definicaoSelecionada?.formaDeCalculo ? 
+                          extrairValorEnum(definicaoSelecionada.formaDeCalculo) : '-'}
+                      </Text>
+                    </Col>
+
+                    <Col span={12}>
+                      <Text type="secondary">Periodicidade:</Text>
+                    </Col>
+                    <Col span={12}>
+                      <Text strong style={{ fontSize: 14 }}>
+                        {definicaoSelecionada?.periodicidade ? 
+                          extrairValorEnum(definicaoSelecionada.periodicidade) : '-'}
+                      </Text>
+                    </Col>
+                  </Row>
+                </div>
+
+                {!definicaoSelecionada && (
+                  <Alert
+                    message="Selecione uma definição"
+                    description="Escolha uma definição de crédito para ver os detalhes aqui"
+                    type="info"
+                    showIcon
+                    style={{ marginTop: 16 }}
+                  />
+                )}
+              </Card>
+
+              {/* Opções Avançadas */}
+              <Card 
+                title="⚙️ Opções" 
+                size="small"
+                style={{ marginTop: 16, backgroundColor: token.colorWarningBg }}
+              >
+                <Form.Item
+                  label="Usar Definição"
+                  valuePropName="checked"
+                  tooltip="Ative para usar uma definição já cadastrada"
+                >
+                  <Switch
+                    checked={usarDefinicao}
+                    onChange={handleUsarDefinicaoChange}
+                    checkedChildren="Sim"
+                    unCheckedChildren="Não"
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  label="Calcular mora sobre valor total"
+                  name="ignorarPagamentosNoPrazo"
+                  valuePropName="checked"
+                  tooltip="Se ativo, calcula mora sobre o valor total mesmo com pagamentos parciais"
+                >
+                  <Switch checkedChildren="Sim" unCheckedChildren="Não" />
+                </Form.Item>
+              </Card>
             </Col>
           </Row>
+
+          {/* ============================================================ */}
+          {/* SEÇÃO 3: CAMPOS AVANÇADOS (EXPANSÍVEL)                      */}
+          {/* ============================================================ */}
+          {!usarDefinicao && (
+            <Card 
+              title="🔧 Configurações Personalizadas" 
+              size="small"
+              style={{ marginTop: 16 }}
+            >
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item
+                    label="Taxa de Juros (%)"
+                    name="percentualDeJuros"
+                    rules={[{ required: true, message: 'Informe a taxa de juros' }]}
+                  >
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      min={0}
+                      max={100}
+                      precision={4}
+                      size="large"
+                      placeholder="0,00"
+                      addonAfter="%"
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col span={8}>
+                  <Form.Item
+                    label="Forma de Cálculo"
+                    name="formaDeCalculo"
+                    rules={[{ required: true, message: 'Selecione a forma de cálculo' }]}
+                  >
+                    <Select size="large" placeholder="Selecione">
+                      <Select.Option value="TAXA_FIXA">💰 Taxa Fixa</Select.Option>
+                      <Select.Option value="PMT">📊 PMT - Prestações Fixas</Select.Option>
+                      <Select.Option value="JUROS_SIMPLES">📈 Juros Simples</Select.Option>
+                      <Select.Option value="JUROS_COMPOSTOS">📉 Juros Compostos</Select.Option>
+                      <Select.Option value="SAC">🔢 SAC - Amortização Constante</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+
+                <Col span={8}>
+                  <Form.Item
+                    label="Juros de Demora (%)"
+                    name="percentualJurosDeDemora"
+                  >
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      min={0}
+                      max={100}
+                      precision={4}
+                      size="large"
+                      placeholder="0,00"
+                      addonAfter="%"
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item label="Descrição/Observações" name="descricao">
+                <TextArea
+                  rows={2}
+                  placeholder="Observações sobre este crédito (opcional)"
+                  maxLength={500}
+                  showCount
+                />
+              </Form.Item>
+            </Card>
+          )}
         </Form>
       </Card>
     </ConfigProvider>

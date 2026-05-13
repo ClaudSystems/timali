@@ -282,10 +282,8 @@ class CreditoService {
                 break
         }
 
-        // Atualiza totais no crédito
+        // Atualiza valorTotal no crédito (os outros totais são calculados automaticamente pelos getters)
         creditoPersistido.valorTotal = valorTotalReal.setScale(2, RoundingMode.HALF_UP)
-        creditoPersistido.totalPrevisto = valorTotalReal.setScale(2, RoundingMode.HALF_UP)
-        creditoPersistido.totalEmDivida = valorTotalReal.setScale(2, RoundingMode.HALF_UP)
         creditoPersistido.save(flush: true, failOnError: true)
 
         log.info("=" * 50)
@@ -466,29 +464,16 @@ class CreditoService {
     Credito recalcularTotais(Credito credito) {
         if (!credito) return null
 
+        // Os totais agora são calculados automaticamente pelos getters na classe Credito
+        // Não precisamos mais atribuir valores manualmente
+
+        // Verificar status baseado nas parcelas
         if (credito.parcelas && credito.parcelas.size() > 0) {
-            // Total previsto
-            credito.totalPrevisto = (credito.parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0) as BigDecimal
-
-            // Total pago
-            credito.totalPago = (credito.parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0) as BigDecimal
-
-            // Total pago no prazo - GARANTIR QUE NÃO SEJA NULL
-            def pagasNoPrazo = credito.parcelas.findAll { it.pagoNoPrazo }
-            credito.totalPagoNoPrazo = (pagasNoPrazo.sum { it.valorPago ?: 0.0 } ?: 0.0) as BigDecimal
-
-            // Total em dívida
-            credito.totalEmDivida = ((credito.totalPrevisto ?: 0.0) - (credito.totalPago ?: 0.0)).max(0.0) as BigDecimal
-
-            // Totais de juros e multas
-            credito.totalJurosPago = (credito.parcelas.sum { it.valorPagoJuros ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalMultaPago = (credito.parcelas.sum { it.valorPagoMulta ?: 0.0 } ?: 0.0) as BigDecimal
-            credito.totalJurosDemoraPago = (credito.parcelas.sum { it.valorPagoJurosDemora ?: 0.0 } ?: 0.0) as BigDecimal
-
-            // Verificar status
             boolean todasPagas = credito.parcelas.every { it.pago }
+            BigDecimal totalPago = credito.parcelas.sum { it.valorPago ?: 0.0 } ?: 0.0
+            BigDecimal totalPrevisto = credito.parcelas.sum { it.valorParcela ?: 0.0 } ?: 0.0
 
-            if (todasPagas && credito.totalEmDivida <= 0) {
+            if (todasPagas && (totalPrevisto - totalPago) <= 0) {
                 credito.status = StatusCredito.QUITADO
                 credito.quitado = true
                 credito.ativo = false
@@ -500,23 +485,9 @@ class CreditoService {
                 credito.status = StatusCredito.ATIVO
                 credito.emMora = false
             }
-        } else {
-            credito.totalPrevisto = credito.valorTotal ?: 0.0
-            credito.totalPago = credito.totalPago ?: 0.0
-            credito.totalPagoNoPrazo = credito.totalPagoNoPrazo ?: 0.0  // Garantir valor padrão
-            credito.totalEmDivida = ((credito.totalPrevisto ?: 0.0) - (credito.totalPago ?: 0.0)).max(0.0)
-            credito.totalJurosPago = credito.totalJurosPago ?: 0.0
-            credito.totalMultaPago = credito.totalMultaPago ?: 0.0
-            credito.totalJurosDemoraPago = credito.totalJurosDemoraPago ?: 0.0
         }
 
-        // GARANTIR QUE NENHUM CAMPO OBRIGATÓRIO SEJA NULL
-        credito.totalPagoNoPrazo = credito.totalPagoNoPrazo ?: 0.0
-        credito.totalJurosPago = credito.totalJurosPago ?: 0.0
-        credito.totalMultaPago = credito.totalMultaPago ?: 0.0
-        credito.totalJurosDemoraPago = credito.totalJurosDemoraPago ?: 0.0
-
-        if (!credito.save(flush: true, failOnError: true)) {
+        if (!credito.save(flush: true)) {
             log.error("Erro ao salvar crédito: ${credito.errors}")
         }
 
@@ -668,11 +639,10 @@ class CreditoService {
     def recalcularAposGerarParcelas(Credito credito) {
         if (!credito) return
 
-        credito.totalPrevisto = credito.parcelas?.sum { it.valorParcela ?: 0.0 } ?: credito.valorTotal
-        credito.totalEmDivida = credito.totalPrevisto - (credito.totalPago ?: 0.0)
-        credito.totalPago = credito.parcelas?.sum { it.valorPago ?: 0.0 } ?: 0.0
-
-        credito.save(flush: true, failOnError: true)
+        // Os totais agora são calculados automaticamente pelos getters
+        // Apenas salvamos o crédito para garantir que as parcelas estejam persistidas
+        
+        credito.save(flush: true)
 
         log.info("✅ #${credito.numero} - Previsto: ${credito.totalPrevisto} | Pago: ${credito.totalPago} | Dívida: ${credito.totalEmDivida}")
     }
@@ -733,5 +703,254 @@ class CreditoService {
 /**
  * Registra pagamento de uma parcela (aceita pagamento parcial)
  */
+
+    // ====================================================================
+    // SIMULADOR DE CRÉDITO
+    // ====================================================================
+
+    /**
+     * Simula um crédito sem salvar no banco de dados.
+     * Retorna o plano de pagamento completo com todas as parcelas calculadas.
+     */
+    def simularCredito(BigDecimal valorConcedido, Integer numeroDePrestacoes,
+                       BigDecimal percentualDeJuros, String formaDeCalculo,
+                       String periodicidade) {
+        try {
+            println "🧮 Iniciando simulação:"
+            println "   Valor: ${valorConcedido}"
+            println "   Prestações: ${numeroDePrestacoes}"
+            println "   Juros: ${percentualDeJuros}%"
+            println "   Forma: ${formaDeCalculo}"
+            println "   Periodicidade: ${periodicidade}"
+
+            if (!valorConcedido || valorConcedido <= 0) {
+                throw new IllegalArgumentException("Valor concedido inválido")
+            }
+
+            if (!numeroDePrestacoes || numeroDePrestacoes < 1) {
+                throw new IllegalArgumentException("Número de prestações inválido")
+            }
+
+            // Calcular taxa por período
+            BigDecimal taxaPeriodo = taxaPorPeriodo(percentualDeJuros, periodicidade)
+
+            // Gerar datas das parcelas
+            Date dataInicio = new Date()
+            def datasParcelas = gerarDatasParcelas(dataInicio, numeroDePrestacoes, periodicidade)
+
+            // Calcular parcelas baseado na forma de cálculo
+            def parcelas = []
+            BigDecimal saldoDevedor = valorConcedido
+            BigDecimal totalJuros = BigDecimal.ZERO
+            BigDecimal totalAmortizacao = BigDecimal.ZERO
+
+            switch (formaDeCalculo?.toUpperCase()) {
+                case 'TAXA_FIXA':
+                    parcelas = calcularTaxaFixa(valorConcedido, taxaPeriodo, numeroDePrestacoes, datasParcelas)
+                    break
+                case 'PMT':
+                    parcelas = calcularPMTCompleto(valorConcedido, taxaPeriodo, numeroDePrestacoes, datasParcelas)
+                    break
+                case 'SAC':
+                    parcelas = calcularSAC(valorConcedido, taxaPeriodo, numeroDePrestacoes, datasParcelas)
+                    break
+                case 'JUROS_SIMPLES':
+                    parcelas = calcularJurosSimples(valorConcedido, taxaPeriodo, numeroDePrestacoes, datasParcelas)
+                    break
+                case 'JUROS_COMPOSTOS':
+                    parcelas = calcularJurosCompostos(valorConcedido, taxaPeriodo, numeroDePrestacoes, datasParcelas)
+                    break
+                default:
+                    // Padrão: PMT
+                    parcelas = calcularPMTCompleto(valorConcedido, taxaPeriodo, numeroDePrestacoes, datasParcelas)
+            }
+
+            // Calcular totais
+            totalJuros = parcelas.sum { it.valorJuros ?: 0 } ?: 0
+            totalAmortizacao = parcelas.sum { it.valorAmortizacao ?: 0 } ?: 0
+            BigDecimal valorTotal = valorConcedido + totalJuros
+
+            def resultado = [
+                valorConcedido: valorConcedido,
+                valorTotal: valorTotal,
+                totalJuros: totalJuros,
+                totalAmortizacao: totalAmortizacao,
+                numeroDePrestacoes: numeroDePrestacoes,
+                percentualDeJuros: percentualDeJuros,
+                formaDeCalculo: formaDeCalculo,
+                periodicidade: periodicidade,
+                parcelas: parcelas
+            ]
+
+            println "✅ Simulação concluída: ${parcelas.size()} parcelas"
+            println "   Total Juros: ${totalJuros}"
+            println "   Total a Pagar: ${valorTotal}"
+
+            return resultado
+        } catch (Exception e) {
+            println "❌ ERRO na simulação: ${e.message}"
+            e.printStackTrace()
+            throw e
+        }
+    }
+
+    private List<Map> calcularTaxaFixa(BigDecimal principal, BigDecimal taxaPeriodo,
+                                       Integer n, List<Date> datas) {
+        BigDecimal amortizacao = principal.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP)
+        BigDecimal jurosFixo = principal.multiply(taxaPeriodo).setScale(2, RoundingMode.HALF_UP)
+        BigDecimal valorParcela = amortizacao.add(jurosFixo)
+
+        def parcelas = []
+        BigDecimal saldo = principal
+
+        for (int i = 1; i <= n; i++) {
+            saldo = saldo.subtract(amortizacao)
+            if (saldo < 0) saldo = BigDecimal.ZERO
+
+            parcelas << [
+                numero: i,
+                dataVencimento: datas[i - 1],
+                valorParcela: valorParcela,
+                valorAmortizacao: amortizacao,
+                valorJuros: jurosFixo,
+                saldoDevedor: saldo
+            ]
+        }
+
+        return parcelas
+    }
+
+    private List<Map> calcularPMTCompleto(BigDecimal principal, BigDecimal taxaPeriodo,
+                                          Integer n, List<Date> datas) {
+        BigDecimal pmt = calcularPMT(principal, taxaPeriodo, n)
+
+        def parcelas = []
+        BigDecimal saldo = principal
+
+        for (int i = 1; i <= n; i++) {
+            BigDecimal juros = saldo.multiply(taxaPeriodo).setScale(2, RoundingMode.HALF_UP)
+            BigDecimal amortizacao = pmt.subtract(juros)
+            saldo = saldo.subtract(amortizacao)
+            if (saldo < 0) saldo = BigDecimal.ZERO
+
+            parcelas << [
+                numero: i,
+                dataVencimento: datas[i - 1],
+                valorParcela: pmt,
+                valorAmortizacao: amortizacao,
+                valorJuros: juros,
+                saldoDevedor: saldo
+            ]
+        }
+
+        return parcelas
+    }
+
+    private List<Map> calcularSAC(BigDecimal principal, BigDecimal taxaPeriodo,
+                                  Integer n, List<Date> datas) {
+        BigDecimal amortizacaoConstante = principal.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP)
+
+        def parcelas = []
+        BigDecimal saldo = principal
+
+        for (int i = 1; i <= n; i++) {
+            BigDecimal juros = saldo.multiply(taxaPeriodo).setScale(2, RoundingMode.HALF_UP)
+            BigDecimal valorParcela = amortizacaoConstante.add(juros)
+            saldo = saldo.subtract(amortizacaoConstante)
+            if (saldo < 0) saldo = BigDecimal.ZERO
+
+            parcelas << [
+                numero: i,
+                dataVencimento: datas[i - 1],
+                valorParcela: valorParcela,
+                valorAmortizacao: amortizacaoConstante,
+                valorJuros: juros,
+                saldoDevedor: saldo
+            ]
+        }
+
+        return parcelas
+    }
+
+    private List<Map> calcularJurosSimples(BigDecimal principal, BigDecimal taxaPeriodo,
+                                           Integer n, List<Date> datas) {
+        BigDecimal amortizacao = principal.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP)
+        BigDecimal jurosTotal = principal.multiply(taxaPeriodo).multiply(new BigDecimal(n)).setScale(2, RoundingMode.HALF_UP)
+        BigDecimal jurosPorParcela = jurosTotal.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP)
+        BigDecimal valorParcela = amortizacao.add(jurosPorParcela)
+
+        def parcelas = []
+        BigDecimal saldo = principal
+
+        for (int i = 1; i <= n; i++) {
+            saldo = saldo.subtract(amortizacao)
+            if (saldo < 0) saldo = BigDecimal.ZERO
+
+            parcelas << [
+                numero: i,
+                dataVencimento: datas[i - 1],
+                valorParcela: valorParcela,
+                valorAmortizacao: amortizacao,
+                valorJuros: jurosPorParcela,
+                saldoDevedor: saldo
+            ]
+        }
+
+        return parcelas
+    }
+
+    private List<Map> calcularJurosCompostos(BigDecimal principal, BigDecimal taxaPeriodo,
+                                             Integer n, List<Date> datas) {
+        // Fórmula: M = C * (1 + i)^n
+        BigDecimal montante = principal.multiply(
+            BigDecimal.ONE.add(taxaPeriodo).pow(n)
+        ).setScale(2, RoundingMode.HALF_UP)
+
+        BigDecimal valorParcela = montante.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP)
+        BigDecimal amortizacao = principal.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP)
+        BigDecimal juros = valorParcela.subtract(amortizacao)
+
+        def parcelas = []
+        BigDecimal saldo = principal
+
+        for (int i = 1; i <= n; i++) {
+            saldo = saldo.subtract(amortizacao)
+            if (saldo < 0) saldo = BigDecimal.ZERO
+
+            parcelas << [
+                numero: i,
+                dataVencimento: datas[i - 1],
+                valorParcela: valorParcela,
+                valorAmortizacao: amortizacao,
+                valorJuros: juros,
+                saldoDevedor: saldo
+            ]
+        }
+
+        return parcelas
+    }
+
+    private List<Date> gerarDatasParcelas(Date dataInicio, Integer n, String periodicidade) {
+        def datas = []
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(dataInicio)
+
+        int diasIncremento = 30 // Padrão: mensal
+        switch (periodicidade?.toUpperCase()) {
+            case 'DIARIO': diasIncremento = 1; break
+            case 'SEMANAL': diasIncremento = 7; break
+            case 'QUINZENAL': diasIncremento = 15; break
+            case 'MENSAL': diasIncremento = 30; break
+        }
+
+        for (int i = 1; i <= n; i++) {
+            Calendar novaData = Calendar.getInstance()
+            novaData.setTime(dataInicio)
+            novaData.add(Calendar.DAY_OF_MONTH, diasIncremento * i)
+            datas << novaData.time
+        }
+
+        return datas
+    }
 
 }

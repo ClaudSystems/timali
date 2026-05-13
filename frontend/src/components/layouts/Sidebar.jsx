@@ -11,6 +11,7 @@ import {
   UsergroupAddOutlined,
   SafetyOutlined,
   KeyOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons';
 import { useSettings } from '../../contexts/SettingsContext';
 
@@ -41,6 +42,11 @@ const Sidebar = () => {
       key: '/caixa',
       icon: <WalletOutlined />,
       label: 'Caixa',
+    },
+    {
+      key: '/relatorios',
+      icon: <FileSearchOutlined />,
+      label: 'Relatórios',
     },
     {
       key: 'usuarios',

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, message, Space, Alert } from 'antd';
 import { UserOutlined, LockOutlined, LoginOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
-import loginBackground from '../assets/images/login.png';
+import loginBackground from '../assets/images/login.jpg';
 
 const { Title, Text } = Typography;
 

@@ -3,6 +3,7 @@ package app.timali
 
 import grails.compiler.GrailsCompileStatic
 import grails.gorm.annotation.Entity
+import java.math.RoundingMode
 
 @GrailsCompileStatic
 @Entity
@@ -115,6 +116,158 @@ class Parcela implements Serializable {
 
     String toString() {
         return "Parcela ${numero}/${credito?.numeroDePrestacoes}"
+    }
+
+    // =========================================================================
+    // MÉTODOS DE CÁLCULO DE MORA
+    // =========================================================================
+
+    /**
+     * Calcula o valor da mora (juros de demora) baseado nas definições do crédito
+     * @return BigDecimal com o valor calculado da mora
+     */
+    BigDecimal calcularValorMora() {
+        if (!credito || pago || !emMora || diasAtraso <= 0) {
+            return BigDecimal.ZERO
+        }
+
+        // Verificar se o crédito tem configuração de mora
+        BigDecimal percentualJurosDemora = credito.percentualJurosDeDemora ?: BigDecimal.ZERO
+        if (percentualJurosDemora.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO
+        }
+
+        int maximoCobrancasMora = credito.maximoCobrancasMora ?: 0
+        def periodicidadeMora = credito.periodicidadeMora
+        boolean ignorarPagamentosNoPrazo = credito.ignorarPagamentosNoPrazo ?: false
+
+        // Definir valor base para cálculo
+        BigDecimal valorBase
+        if (ignorarPagamentosNoPrazo) {
+            // Cobra sobre o valor TOTAL da parcela
+            valorBase = valorParcela ?: BigDecimal.ZERO
+        } else {
+            // Desconta pagamentos parciais já feitos
+            valorBase = (valorParcela ?: BigDecimal.ZERO) - (valorPago ?: BigDecimal.ZERO)
+        }
+
+        if (valorBase.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO
+        }
+
+        // Calcular dias por cobrança baseado na periodicidade
+        int diasPorCobranca = 1 // Padrão: diário
+        if (periodicidadeMora) {
+            String perMora = periodicidadeMora.toString().toUpperCase()
+            if (perMora.contains('SEMANAL')) {
+                diasPorCobranca = 7
+            } else if (perMora.contains('QUINZENAL')) {
+                diasPorCobranca = 15
+            } else if (perMora.contains('MENSAL')) {
+                diasPorCobranca = 30
+            }
+        }
+
+        // Calcular número de cobranças devidas
+        int cobrancasDevidas = (diasAtraso / diasPorCobranca) as Integer
+
+        // Aplicar limite máximo de cobranças
+        if (maximoCobrancasMora > 0 && cobrancasDevidas > maximoCobrancasMora) {
+            cobrancasDevidas = maximoCobrancasMora
+        }
+
+        // Não cobrar mais do que já foi aplicado
+        if (cobrancasDevidas <= cobrancasMoraAplicadas) {
+            return BigDecimal.ZERO
+        }
+
+        // Calcular valor da mora
+        BigDecimal taxaMora = percentualJurosDemora.divide(new BigDecimal(100), 10, RoundingMode.HALF_UP)
+        BigDecimal valorMora = valorBase.multiply(taxaMora)
+                .multiply(new BigDecimal(cobrancasDevidas))
+                .setScale(2, RoundingMode.HALF_UP)
+
+        return valorMora
+    }
+
+    /**
+     * Calcula e atualiza o valor da mora na parcela
+     * @return true se houve alteração no valor
+     */
+    boolean atualizarMora() {
+        if (!credito || pago) {
+            return false
+        }
+
+        Date hoje = zerarHora(new Date())
+        
+        // Verificar se está vencida
+        if (dataVencimento.before(hoje)) {
+            long diffMillis = hoje.time - dataVencimento.time
+            int diasAtrasoCalculado = (diffMillis / (1000 * 60 * 60 * 24)) as Integer
+
+            if (diasAtrasoCalculado > 0) {
+                this.diasAtraso = diasAtrasoCalculado
+                this.emMora = true
+                this.status = StatusParcela.VENCIDA
+
+                BigDecimal novaMora = calcularValorMora()
+                
+                if (novaMora.compareTo(valorJurosDemora ?: BigDecimal.ZERO) != 0) {
+                    this.valorJurosDemora = novaMora
+                    
+                    // Atualizar contador de cobranças aplicadas
+                    int maximoCobrancasMora = credito.maximoCobrancasMora ?: 0
+                    def periodicidadeMora = credito.periodicidadeMora
+                    
+                    int diasPorCobranca = 1
+                    if (periodicidadeMora) {
+                        String perMora = periodicidadeMora.toString().toUpperCase()
+                        if (perMora.contains('SEMANAL')) diasPorCobranca = 7
+                        else if (perMora.contains('QUINZENAL')) diasPorCobranca = 15
+                        else if (perMora.contains('MENSAL')) diasPorCobranca = 30
+                    }
+                    
+                    int cobrancasDevidas = (diasAtraso / diasPorCobranca) as Integer
+                    if (maximoCobrancasMora > 0 && cobrancasDevidas > maximoCobrancasMora) {
+                        cobrancasDevidas = maximoCobrancasMora
+                    }
+                    this.cobrancasMoraAplicadas = cobrancasDevidas
+                    
+                    return true
+                }
+            }
+        }
+        
+        return false
+    }
+
+    /**
+     * Zera hora/minuto/segundo/milissegundo de uma data
+     */
+    private Date zerarHora(Date data) {
+        if (!data) return null
+        Calendar cal = Calendar.getInstance()
+        cal.setTime(data)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.time
+    }
+
+    /**
+     * Getter calculado para valor total devido (parcela + mora)
+     */
+    BigDecimal getValorTotalDevido() {
+        return (valorParcela ?: BigDecimal.ZERO) + (valorJurosDemora ?: BigDecimal.ZERO) + (valorMulta ?: BigDecimal.ZERO)
+    }
+
+    /**
+     * Getter calculado para saldo restante incluindo mora
+     */
+    BigDecimal getSaldoRestanteComMora() {
+        return getValorTotalDevido() - (valorPago ?: BigDecimal.ZERO)
     }
 }
 

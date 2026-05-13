@@ -179,8 +179,8 @@ class DefinicaoCredito {
         // Mapeamento explícito de todas as colunas compostas
         numeroDePrestacoes column: 'numero_de_prestacoes'
         formaDeCalculo column: 'forma_de_calculo'
-        percentualDeJuros column: 'percentual_de_juros'
-        percentualJurosDeDemora column: 'percentual_juros_de_demora'
+        percentualDeJuros column: 'percentual_de_juros', sqlType: 'decimal(10,4)'
+        percentualJurosDeDemora column: 'percentual_juros_de_demora', sqlType: 'decimal(10,4)'
         periodicidadeMora column: 'periodicidade_mora'
         maximoCobrancasMora column: 'maximo_cobrancas_mora'
         excluirSabados column: 'excluir_sabados'

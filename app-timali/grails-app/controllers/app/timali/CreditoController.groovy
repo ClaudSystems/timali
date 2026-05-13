@@ -100,25 +100,30 @@ class CreditoController {
         }
 
         def resultado = parcelas.collect { parcela ->
-            [
-                    id: parcela.id,
-                    numero: parcela.numero,
-                    dataPagamento: parcela.dataPagamento,
-                    dataVencimento: parcela.dataVencimento,
-                    valorParcela: parcela.valorParcela,
-                    valorPago: parcela.valorPago,
-                    formaPagamento: parcela.formaPagamento,
-                    comprovativo: parcela.comprovativo,
-                    pagoNoPrazo: parcela.pagoNoPrazo,
-                    creditoId: parcela.credito?.id,
-                    creditoNumero: parcela.credito?.numero,
-                    cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
-                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.telefone1 ?: '',
-                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
-                    saldoDevedor: parcela.credito?.totalEmDivida
-            ]
-        }
+            try {
+                [
+                        id: parcela.id,
+                        numero: parcela.numero,
+                        dataPagamento: parcela.dataPagamento,
+                        dataVencimento: parcela.dataVencimento,
+                        valorParcela: parcela.valorParcela,
+                        valorPago: parcela.valorPago,
+                        formaPagamento: parcela.formaPagamento,
+                        comprovativo: parcela.comprovativo,
+                        pagoNoPrazo: parcela.pagoNoPrazo,
+                        creditoId: parcela.credito?.id,
+                        creditoNumero: parcela.credito?.numero,
+                        cliente: parcela.credito?.entidade?.nome,
+                        nuit: parcela.credito?.entidade?.identificacao?.nuit,
+                        telefone: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                        documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
+                        saldoDevedor: parcela.credito?.totalEmDivida
+                ]
+            } catch (Exception e) {
+                println "⚠️ Erro ao processar parcela ${parcela.id}: ${e.message}"
+                null
+            }
+        }.findAll { it != null }
 
         render(resultado as JSON)
     }
@@ -175,7 +180,7 @@ class CreditoController {
                     comprovativo: parcela.comprovativo,
                     pagoNoPrazo: parcela.pagoNoPrazo,
                     clienteNome: parcela.credito?.entidade?.nome,
-                    clienteTelefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                    clienteTelefone: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
                     clienteNuit: parcela.credito?.entidade?.identificacao?.nuit,
                     creditoNumero: parcela.credito?.numero,
                     saldoDevedor: parcela.credito?.totalEmDivida
@@ -239,7 +244,58 @@ class CreditoController {
         render(resultado as JSON)
     }
 
-// Buscar TODOS os pagamentos (para histórico geral)
+    // Buscar pagamentos/histórico de uma parcela específica (para múltiplos pagamentos parciais)
+    def pagamentosParcela(Long parcelaId) {
+        try {
+            println "🔍 Buscando pagamentos da parcela: ${parcelaId}"
+            
+            def parcela = Parcela.get(parcelaId)
+            if (!parcela) {
+                println "❌ Parcela não encontrada"
+                render status: 404, text: [message: "Parcela não encontrada"] as JSON
+                return
+            }
+
+            // Se a parcela tem histórico de pagamentos (tabela Pagamento)
+            def pagamentos = []
+            try {
+                // Tenta buscar na tabela Pagamento se existir
+                pagamentos = Pagamento.findAllByParcela(parcela, [sort: 'dataPagamento', order: 'desc'])
+                    .collect { pag ->
+                        [
+                            id: pag.id,
+                            dataPagamento: pag.dataPagamento,
+                            valorPago: pag.valorPago,
+                            formaPagamento: pag.formaPagamento,
+                            comprovativo: pag.comprovativo,
+                            numeroRecibo: pag.numeroRecibo,
+                            observacao: pag.observacao
+                        ]
+                    }
+            } catch (Exception e) {
+                println "⚠️ Tabela Pagamento não disponível, usando dados da parcela"
+                // Fallback: se a parcela está paga, retorna um único pagamento com os dados dela
+                if (parcela.pago || (parcela.valorPago ?: 0) > 0) {
+                    pagamentos = [[
+                        id: parcela.id,
+                        dataPagamento: parcela.dataPagamento ?: new Date(),
+                        valorPago: parcela.valorPago ?: 0,
+                        formaPagamento: parcela.formaPagamento ?: 'DINHEIRO',
+                        comprovativo: parcela.comprovativo,
+                        numeroRecibo: parcela.numeroRecibo ?: "REC-${parcela.id}",
+                        observacao: parcela.observacao
+                    ]]
+                }
+            }
+
+            println "✅ Encontrados ${pagamentos.size()} pagamento(s)"
+            render(pagamentos as JSON)
+        } catch (Exception e) {
+            println "❌ ERRO ao buscar pagamentos: ${e.message}"
+            e.printStackTrace()
+            render status: 500, text: [message: "Erro: ${e.message}"] as JSON
+        }
+    }
     def historicoPagamentos() {
         params.max = Math.min(params.max as Integer ?: 50, 200)
         params.offset = params.offset as Integer ?: 0
@@ -317,30 +373,35 @@ class CreditoController {
         }
 
         def resultado = parcelas.collect { parcela ->
-            [
-                    id: parcela.id,
-                    numero: parcela.numero,
-                    dataVencimento: parcela.dataVencimento,
-                    dataPagamento: parcela.dataPagamento,
-                    valorParcela: parcela.valorParcela,
-                    valorPago: parcela.valorPago ?: 0,
-                    pago: parcela.pago,
-                    pagoNoPrazo: parcela.pagoNoPrazo,
-                    emMora: parcela.emMora,
-                    status: parcela.status?.toString(),
-                    formaPagamento: parcela.formaPagamento,
-                    comprovativo: parcela.comprovativo,
-                    diasAtraso: parcela.diasAtraso,
-                    creditoId: parcela.credito?.id,
-                    creditoNumero: parcela.credito?.numero,
-                    cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
-                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
-                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
-                    saldoDevedor: parcela.credito?.totalEmDivida,
-                    valorTotalCredito: parcela.credito?.valorTotal
-            ]
-        }
+            try {
+                [
+                        id: parcela.id,
+                        numero: parcela.numero,
+                        dataVencimento: parcela.dataVencimento,
+                        dataPagamento: parcela.dataPagamento,
+                        valorParcela: parcela.valorParcela,
+                        valorPago: parcela.valorPago ?: 0,
+                        pago: parcela.pago,
+                        pagoNoPrazo: parcela.pagoNoPrazo,
+                        emMora: parcela.emMora,
+                        status: parcela.status?.toString(),
+                        formaPagamento: parcela.formaPagamento,
+                        comprovativo: parcela.comprovativo,
+                        diasAtraso: parcela.diasAtraso,
+                        creditoId: parcela.credito?.id,
+                        creditoNumero: parcela.credito?.numero,
+                        cliente: parcela.credito?.entidade?.nome,
+                        nuit: parcela.credito?.entidade?.identificacao?.nuit,
+                        telefone: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                        documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
+                        saldoDevedor: parcela.credito?.totalEmDivida,
+                        valorTotalCredito: parcela.credito?.valorTotal
+                ]
+            } catch (Exception e) {
+                println "⚠️ Erro ao processar parcela ${parcela.id}: ${e.message}"
+                null
+            }
+        }.findAll { it != null }
 
         render(resultado as JSON)
     }
@@ -375,25 +436,30 @@ class CreditoController {
         }
 
         def resultado = parcelas.collect { parcela ->
-            [
-                    id: parcela.id,
-                    numero: parcela.numero,
-                    dataVencimento: parcela.dataVencimento,
-                    dataPagamento: parcela.dataPagamento,
-                    valorParcela: parcela.valorParcela,
-                    valorPago: parcela.valorPago,
-                    formaPagamento: parcela.formaPagamento,
-                    comprovativo: parcela.comprovativo,
-                    pagoNoPrazo: parcela.pagoNoPrazo,
-                    creditoId: parcela.credito?.id,
-                    creditoNumero: parcela.credito?.numero,
-                    cliente: parcela.credito?.entidade?.nome,
-                    nuit: parcela.credito?.entidade?.identificacao?.nuit,
-                    telefone: parcela.credito?.entidade?.telefone ?: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
-                    documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
-                    saldoDevedor: parcela.credito?.totalEmDivida
-            ]
-        }
+            try {
+                [
+                        id: parcela.id,
+                        numero: parcela.numero,
+                        dataVencimento: parcela.dataVencimento,
+                        dataPagamento: parcela.dataPagamento,
+                        valorParcela: parcela.valorParcela,
+                        valorPago: parcela.valorPago,
+                        formaPagamento: parcela.formaPagamento,
+                        comprovativo: parcela.comprovativo,
+                        pagoNoPrazo: parcela.pagoNoPrazo,
+                        creditoId: parcela.credito?.id,
+                        creditoNumero: parcela.credito?.numero,
+                        cliente: parcela.credito?.entidade?.nome,
+                        nuit: parcela.credito?.entidade?.identificacao?.nuit,
+                        telefone: parcela.credito?.entidade?.contacto?.telefone1 ?: '',
+                        documento: parcela.credito?.entidade?.identificacao?.numeroDeIdentificao,
+                        saldoDevedor: parcela.credito?.totalEmDivida
+                ]
+            } catch (Exception e) {
+                println "⚠️ Erro ao processar parcela ${parcela.id}: ${e.message}"
+                null
+            }
+        }.findAll { it != null }
 
         render(resultado as JSON)
     }
@@ -465,20 +531,22 @@ class CreditoController {
         Long id = params.long('id')
 
         try {
+            println "🔍 Buscando crédito ID: ${id}"
+            
             def credito = Credito.findById(params.id, [
                     fetch: [
-                            'entidade': 'join',
-                            'entidade.identificacao': 'join',
-                            'entidade.contacto': 'join',
-                            'entidade.dadosPessoais': 'join'
+                            'entidade': 'join'
                     ]
             ])
+            
             if (!credito) {
+                println "❌ Crédito não encontrado"
                 render status: 404, text: [message: "Crédito não encontrado"] as JSON
                 return
             }
-           // creditoService.recalcularTotais(credito)
-           // creditoService.calcularMorasAntesDeExibir(credito)
+            
+            println "✅ Crédito encontrado: ${credito.numero}"
+           
             // Logs de depuração
             println "=" * 60
             println "🔍 DEPURAÇÃO - Crédito ID: ${credito.id}"
@@ -497,23 +565,27 @@ class CreditoController {
                     ]
                 }
             } catch (Exception e) {
+                println "⚠️ Erro ao carregar definição: ${e.message}"
                 log.warn("DefinicaoCredito não encontrada para crédito ${id}: ${e.message}")
                 definicaoCreditoData = [id: null, nome: 'Definição removida']
             }
 
-            // Entidade
+            // Entidade - carregamento seguro
             def entidadeData = null
             try {
                 if (credito.entidade) {
                     entidadeData = [
                             id: credito.entidade?.id,
                             nome: credito.entidade?.nome,
-                            codigo: credito.entidade?.codigo
+                            codigo: credito.entidade?.codigo,
+                            nuit: credito.entidade?.identificacao?.nuit,
+                            numeroDeIdentificao: credito.entidade?.identificacao?.numeroDeIdentificao
                     ]
                 }
             } catch (Exception e) {
+                println "⚠️ Erro ao carregar entidade: ${e.message}"
                 log.warn("Entidade não encontrada para crédito ${id}: ${e.message}")
-                entidadeData = [id: null, nome: 'N/A', codigo: '']
+                entidadeData = [id: null, nome: 'N/A', codigo: '', nuit: '']
             }
 
             // Usuário
@@ -526,6 +598,7 @@ class CreditoController {
                     ]
                 }
             } catch (Exception e) {
+                println "⚠️ Erro ao carregar usuário: ${e.message}"
                 log.warn("Usuario não encontrado para crédito ${id}: ${e.message}")
                 usuarioData = [id: null, username: 'Sistema']
             }
@@ -551,10 +624,12 @@ class CreditoController {
                                 pago: p?.pago ?: false
                         ]
                     } catch (e) {
+                        println "⚠️ Erro na parcela ${p?.id}: ${e.message}"
                         log.error("Erro na parcela ${p?.id}: ${e.message}")
                     }
                 }
             } catch (e) {
+                println "⚠️ Erro ao acessar parcelas: ${e.message}"
                 log.error("Erro ao acessar parcelas: ${e.message}")
             }
 
@@ -591,9 +666,12 @@ class CreditoController {
 
             ]
 
+            println "✅ Renderizando resultado"
             render result as JSON
 
         } catch (Exception e) {
+            println "❌ ERRO CRÍTICO: ${e.message}"
+            e.printStackTrace()
             log.error("ERRO CRÍTICO no mostrar(${id}): ${e.message}", e)
             render status: 500, text: [message: "Erro: ${e.message}"] as JSON
         }
@@ -671,23 +749,73 @@ class CreditoController {
             // Periodicidade
             if (data.periodicidade) {
                 try {
-                    credito.periodicidade = Periodicidade.valueOf(data.periodicidade as String)
+                    // Converte para maiúsculas para garantir compatibilidade com o enum
+                    def periodicidadeStr = (data.periodicidade as String).toUpperCase()
+                    credito.periodicidade = Periodicidade.valueOf(periodicidadeStr)
                 } catch (Exception e) {
-                    credito.periodicidade = definicao.periodicidade ?: Periodicidade.MENSAL
+                    println "⚠️ Erro ao converter periodicidade '${data.periodicidade}': ${e.message}"
+                    // Se falhar, tenta converter do enum da definição
+                    try {
+                        def perDef = definicao.periodicidade
+                        if (perDef) {
+                            credito.periodicidade = Periodicidade.valueOf(perDef.toString().toUpperCase())
+                        } else {
+                            credito.periodicidade = Periodicidade.MENSAL
+                        }
+                    } catch (Exception e2) {
+                        println "⚠️ Erro ao usar periodicidade da definição: ${e2.message}"
+                        credito.periodicidade = Periodicidade.MENSAL
+                    }
                 }
             } else {
-                credito.periodicidade = definicao.periodicidade ?: Periodicidade.MENSAL
+                // Usar periodicidade da definição
+                try {
+                    def perDef = definicao.periodicidade
+                    if (perDef) {
+                        credito.periodicidade = Periodicidade.valueOf(perDef.toString().toUpperCase())
+                    } else {
+                        credito.periodicidade = Periodicidade.MENSAL
+                    }
+                } catch (Exception e) {
+                    println "⚠️ Erro ao usar periodicidade da definição: ${e.message}"
+                    credito.periodicidade = Periodicidade.MENSAL
+                }
             }
 
             // Forma de cálculo
             if (data.formaDeCalculo) {
                 try {
-                    credito.formaDeCalculo = FormaCalculo.valueOf(data.formaDeCalculo as String)
+                    // Converte para maiúsculas para garantir compatibilidade com o enum
+                    def formaCalculoStr = (data.formaDeCalculo as String).toUpperCase()
+                    credito.formaDeCalculo = FormaCalculo.valueOf(formaCalculoStr)
                 } catch (Exception e) {
-                    credito.formaDeCalculo = definicao.formaDeCalculo ?: FormaCalculo.JUROS_SIMPLES
+                    println "⚠️ Erro ao converter formaDeCalculo '${data.formaDeCalculo}': ${e.message}"
+                    // Se falhar, tenta converter do enum da definição
+                    try {
+                        def formaDef = definicao.formaDeCalculo
+                        if (formaDef) {
+                            credito.formaDeCalculo = FormaCalculo.valueOf(formaDef.toString().toUpperCase())
+                        } else {
+                            credito.formaDeCalculo = FormaCalculo.JUROS_SIMPLES
+                        }
+                    } catch (Exception e2) {
+                        println "⚠️ Erro ao usar formaDeCalculo da definição: ${e2.message}"
+                        credito.formaDeCalculo = FormaCalculo.JUROS_SIMPLES
+                    }
                 }
             } else {
-                credito.formaDeCalculo = definicao.formaDeCalculo ?: FormaCalculo.JUROS_SIMPLES
+                // Usar forma de calculo da definição
+                try {
+                    def formaDef = definicao.formaDeCalculo
+                    if (formaDef) {
+                        credito.formaDeCalculo = FormaCalculo.valueOf(formaDef.toString().toUpperCase())
+                    } else {
+                        credito.formaDeCalculo = FormaCalculo.JUROS_SIMPLES
+                    }
+                } catch (Exception e) {
+                    println "⚠️ Erro ao usar formaDeCalculo da definição: ${e.message}"
+                    credito.formaDeCalculo = FormaCalculo.JUROS_SIMPLES
+                }
             }
 
             // Data de emissão
@@ -775,47 +903,55 @@ class CreditoController {
             return
         }
 
-        def creditos = Credito.createCriteria().list {
-            // Buscar pelo número do crédito OU por dados da entidade
-            or {
-                ilike('numero', "%${termo}%")  // ← ADICIONAR: busca pelo número do crédito
-                entidade {
-                    or {
-                        ilike('nome', "%${termo}%")
-                        ilike('codigo', "%${termo}%")
-                        ilike('nuit', "%${termo}%")
-                    }
+        try {
+            println "🔍 Buscando créditos por termo: ${termo}"
+            
+            // Usar HQL em vez de Criteria para evitar problemas de alias
+            def creditos = Credito.executeQuery(
+                """SELECT DISTINCT c FROM Credito c 
+                   LEFT JOIN FETCH c.entidade e 
+                   LEFT JOIN FETCH e.identificacao i
+                   WHERE LOWER(c.numero) LIKE LOWER(:termo) 
+                   OR LOWER(e.nome) LIKE LOWER(:termo) 
+                   OR LOWER(e.codigo) LIKE LOWER(:termo)
+                   OR LOWER(i.nuit) LIKE LOWER(:termo)
+                   ORDER BY c.dataEmissao DESC""",
+                [termo: "%${termo}%"],
+                [max: 20]
+            )
+
+            println "✅ Créditos encontrados: ${creditos?.size()}"
+
+            def resultado = creditos.collect { credito ->
+                try {
+                    [
+                            id: credito.id,
+                            numero: credito.numero,
+                            cliente: credito.entidade?.nome,
+                            codigo: credito.entidade?.codigo,
+                            nuit: credito.entidade?.identificacao?.nuit,
+                            documento: credito.entidade?.identificacao?.numeroDeIdentificao ?: credito.entidade?.identificacao?.nuit ?: '',
+                            valorTotal: credito.valorTotal ?: 0,
+                            totalPago: credito.totalPago ?: 0,
+                            totalEmDivida: credito.totalEmDivida ?: 0,
+                            saldo: credito.totalEmDivida ?: 0,
+                            status: credito.status?.toString() ?: 'ATIVO',
+                            ativo: credito.ativo != false,
+                            dataEmissao: credito.dataEmissao
+                    ]
+                } catch (Exception e) {
+                    println "⚠️ Erro ao processar crédito ${credito.id}: ${e.message}"
+                    null
                 }
-            }
-            // Mostrar TODOS os créditos, não apenas ativos
-            // eq('ativo', true)  // ← REMOVER ou comentar esta linha
-            // or {
-            //     eq('status', StatusCredito.ATIVO)
-            //     eq('status', StatusCredito.EM_ATRASO)
-            // }
-            maxResults(20)
-            order('dataEmissao', 'desc')
-        }
+            }.findAll { it != null }
 
-        def resultado = creditos.collect { credito ->
-            [
-                    id: credito.id,
-                    numero: credito.numero,
-                    cliente: credito.entidade?.nome,
-                    codigo: credito.entidade?.codigo,
-                    nuit: credito.entidade?.identificacao?.nuit,
-                    documento: credito.entidade?.identificacao?.numeroDeIdentificao ?: credito.entidade?.identificacao?.nuit ?: '',
-                    valorTotal: credito.valorTotal,
-                    totalPago: credito.totalPago,
-                    totalEmDivida: credito.totalEmDivida,
-                    saldo: credito.totalEmDivida,
-                    status: credito.status?.toString(),
-                    ativo: credito.ativo,
-                    dataEmissao: credito.dataEmissao
-            ]
+            println "✅ Resultado final: ${resultado?.size()} créditos"
+            render(resultado as JSON)
+        } catch (Exception e) {
+            println "❌ ERRO em buscarCreditosPorCliente: ${e.message}"
+            e.printStackTrace()
+            render status: 500, text: [message: "Erro interno: ${e.message}"] as JSON
         }
-
-        render(resultado as JSON)
     }
 
     def buscarClientes() {
@@ -825,25 +961,116 @@ class CreditoController {
             return
         }
 
-        def clientes = Entidade.createCriteria().list {
-            or {
-                ilike('codigo', "%${termo}%")
-                ilike('nome', "%${termo}%")
+        try {
+            println "🔍 Buscando clientes por termo: ${termo}"
+            
+            def clientes = Entidade.createCriteria().list {
+                or {
+                    ilike('codigo', "%${termo}%")
+                    ilike('nome', "%${termo}%")
+                }
+                maxResults(20)
+                order('nome', 'asc')
             }
-            maxResults(20)
-            order('nome', 'asc')
-        }
 
-        def resultado = clientes.collect { cliente ->
-            [
-                    id: cliente.id,
-                    codigo: cliente.codigo,
-                    nome: cliente.nome,
-                    documento: cliente.identificacao?.numeroDeIdentificao ?: cliente.identificacao?.nuit ?: ''
-            ]
-        }
+            println "✅ Clientes encontrados: ${clientes?.size()}"
 
-        render(resultado as JSON)
+            def resultado = clientes.collect { cliente ->
+                try {
+                    [
+                            id: cliente.id,
+                            codigo: cliente.codigo,
+                            nome: cliente.nome,
+                            documento: cliente.identificacao?.numeroDeIdentificao ?: cliente.identificacao?.nuit ?: ''
+                    ]
+                } catch (Exception e) {
+                    println "⚠️ Erro ao processar cliente ${cliente.id}: ${e.message}"
+                    null
+                }
+            }.findAll { it != null }
+
+            println "✅ Resultado final: ${resultado?.size()} clientes"
+            render(resultado as JSON)
+        } catch (Exception e) {
+            println "❌ ERRO em buscarClientes: ${e.message}"
+            e.printStackTrace()
+            render status: 500, text: [message: "Erro interno: ${e.message}"] as JSON
+        }
+    }
+
+    // ====================================================================
+    // SIMULADOR DE CRÉDITO
+    // ====================================================================
+
+    /**
+     * Simula um crédito baseado em uma definição e parâmetros fornecidos
+     * POST /api/creditos/simulacao
+     */
+    @Transactional(readOnly = true)
+    def simulacao() {
+        try {
+            println "🧮 Endpoint SIMULACAO chamado"
+            println "   Content-Type: ${request.contentType}"
+            println "   Method: ${request.method}"
+            
+            def json = request.JSON
+            println "   JSON recebido: ${json}"
+            
+            BigDecimal valorConcedido = json.valorConcedido as BigDecimal
+            Long definicaoId = json.definicaoId as Long
+            Integer numeroDePrestacoes = json.numeroDePrestacoes
+            BigDecimal percentualDeJuros = json.percentualDeJuros as BigDecimal
+            String formaDeCalculo = json.formaDeCalculo
+            String periodicidade = json.periodicidade
+
+            println "🧮 Simulação solicitada:"
+            println "   Valor: ${valorConcedido}"
+            println "   Definição ID: ${definicaoId}"
+
+            if (!valorConcedido || valorConcedido <= 0) {
+                render status: 400, text: [message: "Valor concedido inválido"] as JSON
+                return
+            }
+
+            if (!definicaoId) {
+                render status: 400, text: [message: "Definição de crédito obrigatória"] as JSON
+                return
+            }
+
+            // Buscar definição
+            def definicao = DefinicaoCredito.get(definicaoId)
+            if (!definicao) {
+                render status: 404, text: [message: "Definição não encontrada"] as JSON
+                return
+            }
+
+            // Usar valores da definição se não foram fornecidos
+            numeroDePrestacoes = numeroDePrestacoes ?: definicao.numeroDePrestacoes
+            percentualDeJuros = percentualDeJuros != null ? percentualDeJuros : definicao.percentualDeJuros
+            formaDeCalculo = formaDeCalculo ?: definicao.formaDeCalculo
+            periodicidade = periodicidade ?: definicao.periodicidade
+
+            println "   Prestações: ${numeroDePrestacoes}"
+            println "   Juros: ${percentualDeJuros}%"
+            println "   Forma: ${formaDeCalculo}"
+            println "   Periodicidade: ${periodicidade}"
+
+            // Calcular parcelas usando o service
+            def resultado = creditoService.simularCredito(
+                valorConcedido,
+                numeroDePrestacoes,
+                percentualDeJuros,
+                formaDeCalculo,
+                periodicidade
+            )
+
+            println "✅ Simulação concluída: ${resultado.parcelas?.size()} parcelas geradas"
+            render status: 200, text: (resultado as JSON)
+        } catch (Exception e) {
+            println "❌ ERRO na simulação: ${e.message}"
+            e.printStackTrace()
+            render status: 500, text: [message: "Erro na simulação: ${e.message}"] as JSON
+        }
     }
 
     def parcelas(Long creditoId) {

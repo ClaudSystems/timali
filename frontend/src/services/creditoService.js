@@ -90,6 +90,9 @@ const creditoService = {
       body: JSON.stringify(data)
     }),
 
+  buscarPagamentosParcela: (parcelaId) =>
+    request(`/creditos/pagamentosParcela?parcelaId=${parcelaId}`),
+
   extrato: (id) => request(`/creditos/${id}/extrato`),
       buscarPagamentosPorCredito: (creditoId) =>
           request(`/creditos/${creditoId}/pagamentos`),
@@ -107,7 +110,14 @@ const creditoService = {
 
       // Pagamentos por período
       pagamentosPorPeriodo: (dataInicio, dataFim) =>
-          request(`/creditos/pagamentosPorPeriodo?dataInicio=${dataInicio}&dataFim=${dataFim}`)
+          request(`/creditos/pagamentosPorPeriodo?dataInicio=${dataInicio}&dataFim=${dataFim}`),
+
+      // Simular crédito
+      simularCredito: (dados) =>
+          request('/creditos/simulacao', {
+              method: 'POST',
+              body: JSON.stringify(dados)
+          }),
 
 };
 

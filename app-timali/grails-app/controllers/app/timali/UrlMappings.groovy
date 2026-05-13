@@ -1,3 +1,4 @@
+
 // grails-app/controllers/app/timali/UrlMappings.groovy
 package app.timali
 
@@ -70,8 +71,10 @@ class UrlMappings {
         // ============================================================
         // API - CRÉDITOS
         // ============================================================
+        "/api/creditos/simulacao"(controller: "credito", action: "simulacao")
         "/api/creditos/recibosPorPeriodo"(controller: "credito", action: "recibosPorPeriodo")
         "/api/creditos/relatorioPagamentos"(controller: "credito", action: "relatorioPagamentos")
+        "/api/creditos/pagamentosParcela"(controller: "credito", action: "pagamentosParcela")
         "/api/creditos/buscarCreditosPorCliente"(controller: "credito", action: "buscarCreditosPorCliente")
         "/api/creditos/buscarClientes"(controller: "credito", action: "buscarClientes")
         "/api/creditos/criar"(controller: "credito", action: "criarCreditoAction")
@@ -171,7 +174,7 @@ class UrlMappings {
         }
 
         // ============================================================
-        // ROTAS DO DOCUMENTO
+        // API - DOCUMENTO
         // ============================================================
         "/api/documentos/upload"(controller: "documento", action: "upload")
         "/api/documentos/$id/download"(controller: "documento", action: "download") {
@@ -183,6 +186,25 @@ class UrlMappings {
         }
         "/api/documentos"(controller: "documento") {
             action = [GET: "index"]
+        }
+
+        // ============================================================
+        // API - RELATÓRIOS
+        // ============================================================
+        "/api/relatorios/dashboardAnalitico"(controller: "relatorio", action: "dashboardAnalitico")
+        "/api/relatorios/creditosEmitidos"(controller: "relatorio", action: "creditosEmitidos")
+        "/api/relatorios/creditosPorGestor"(controller: "relatorio", action: "creditosPorGestor")
+        "/api/relatorios/prestacoesPorVencimento"(controller: "relatorio", action: "prestacoesPorVencimento")
+        "/api/relatorios/pagamentosRecebidos"(controller: "relatorio", action: "pagamentosRecebidos")
+        "/api/relatorios/saidas"(controller: "relatorio", action: "saidas")
+        "/api/relatorios/diarios"(controller: "relatorio", action: "diarios")
+        "/api/relatorios/creditosEmMora"(controller: "relatorio", action: "creditosEmMora")
+        "/api/relatorios/usuarios"(controller: "relatorio", action: "usuarios")
+        "/api/relatorios/usuariosComCreditos"(controller: "relatorio", action: "usuariosComCreditos")
+        "/api/relatorios/clientesComAtrasos"(controller: "relatorio", action: "clientesComAtrasos")
+        "/api/relatorios/gestores"(controller: "relatorio", action: "gestores")
+        "/api/relatorios/avaliarCliente/$clienteId"(controller: "relatorio", action: "avaliarCliente") {
+            constraints { clienteId matches: /\d+/ }
         }
         // ============================================================
         // ROTAS DO REACT (SPA)

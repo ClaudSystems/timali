@@ -1,6 +1,6 @@
 // src/components/caixa/ReciboPagamento.jsx
 import React from 'react';
-import { Button, Space, message } from 'antd';
+import { Button, Space, message, theme } from 'antd';
 import { PrinterOutlined, FilePdfOutlined, CloseOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import 'moment/locale/pt';
@@ -10,6 +10,7 @@ import { jsPDF } from 'jspdf';
 import logoRecibo from '../../assets/images/logo.png';
 
 moment.locale('pt');
+const { useToken } = theme;
 
 // ============================================
 // FUNÇÕES AUXILIARES
@@ -311,10 +312,287 @@ const gerarPDF = async (pagamento) => {
 // COMPONENTE PRINCIPAL
 // ============================================
 const ReciboPagamento = ({ pagamento, onClose }) => {
+    const { token } = useToken();
+    
     if (!pagamento) return null;
 
     const dataFormatada = moment(pagamento.dataPagamento).format('HH:mm - DD/MM/YYYY');
     const valorExtenso = numeroPorExtenso(pagamento.valorPago);
+
+    // Função para imprimir com layout A5 duplo
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Recibo ${pagamento.numeroRecibo}</title>
+                <style>
+                    @page {
+                        size: A4 portrait;
+                        margin: 10mm;
+                    }
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                    }
+                    body {
+                        font-family: Arial, sans-serif;
+                        font-size: 9pt;
+                        color: #000;
+                    }
+                    .recibo-container {
+                        width: 210mm;
+                        height: 297mm;
+                        position: relative;
+                    }
+                    .recibo-a5 {
+                        width: 182mm;
+                        height: 138mm;
+                        padding: 5mm 14mm;
+                        position: absolute;
+                        left: 0;
+                    }
+                    .recibo-original {
+                        top: 0;
+                    }
+                    .recibo-copia {
+                        top: 148.5mm;
+                    }
+                    .linha-corte {
+                        position: absolute;
+                        top: 148.5mm;
+                        left: 12mm;
+                        right: 12mm;
+                        border-top: 0.5px dashed #999;
+                        text-align: center;
+                    }
+                    .linha-corte span {
+                        background: white;
+                        padding: 0 10px;
+                        font-size: 7pt;
+                        color: #666;
+                        position: relative;
+                        top: -5px;
+                    }
+                    .cabecalho {
+                        text-align: center;
+                        margin-bottom: 3mm;
+                    }
+                    .cabecalho img {
+                        max-width: 125mm;
+                        height: auto;
+                        max-height: 27mm;
+                    }
+                    .titulo {
+                        text-align: center;
+                        font-size: 10pt;
+                        font-weight: bold;
+                        letter-spacing: 1px;
+                        margin-bottom: 2mm;
+                    }
+                    .numero-recibo {
+                        text-align: center;
+                        font-size: 8pt;
+                        margin-bottom: 3mm;
+                    }
+                    .dados {
+                        margin-bottom: 3mm;
+                    }
+                    .linha-dado {
+                        margin-bottom: 1.5mm;
+                        font-size: 7pt;
+                    }
+                    .label {
+                        font-weight: bold;
+                        display: inline-block;
+                        width: 25mm;
+                    }
+                    .valor-extenso {
+                        font-style: italic;
+                        font-size: 6pt;
+                        margin: 2mm 0;
+                    }
+                    .tabela-parcelas {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 3mm 0;
+                        font-size: 6.5pt;
+                    }
+                    .tabela-parcelas th {
+                        background-color: #f5f5f5;
+                        border: 0.5px solid #000;
+                        padding: 1.5mm 2mm;
+                        text-align: left;
+                        font-weight: bold;
+                    }
+                    .tabela-parcelas td {
+                        border: 0.5px solid #ddd;
+                        padding: 1mm 2mm;
+                    }
+                    .tabela-parcelas tr.total {
+                        font-weight: bold;
+                        border-top: 0.5px solid #000;
+                    }
+                    .saldo-divida {
+                        background-color: #f8f8f8;
+                        padding: 2mm 3mm;
+                        margin: 2mm 0;
+                        font-size: 7pt;
+                        border: 0.5px solid #ddd;
+                    }
+                    .troco {
+                        color: #b45000;
+                        font-weight: bold;
+                        margin: 2mm 0;
+                        font-size: 7pt;
+                    }
+                    .assinaturas {
+                        margin-top: 8mm;
+                        font-size: 7pt;
+                    }
+                    .assinatura-linha {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-top: 8mm;
+                    }
+                    .assinatura-box {
+                        width: 65mm;
+                        border-top: 0.5px solid #000;
+                        padding-top: 2mm;
+                        text-align: center;
+                    }
+                    .marca-copia {
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%) rotate(-25deg);
+                        font-size: 42pt;
+                        color: rgba(0, 0, 0, 0.04);
+                        pointer-events: none;
+                        z-index: 0;
+                    }
+                    .rodape {
+                        position: absolute;
+                        bottom: 2mm;
+                        width: 100%;
+                        text-align: center;
+                        font-size: 5pt;
+                        color: #999;
+                    }
+                    @media print {
+                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="recibo-container">
+                    <!-- ORIGINAL -->
+                    <div class="recibo-a5 recibo-original">
+                        ${gerarHTMLRecibo(pagamento, false)}
+                    </div>
+                    
+                    <!-- LINHA DE CORTE -->
+                    <div class="linha-corte">
+                        <span>✂ Destaque aqui ✂</span>
+                    </div>
+                    
+                    <!-- CÓPIA -->
+                    <div class="recibo-a5 recibo-copia">
+                        <div class="marca-copia">CÓPIA</div>
+                        ${gerarHTMLRecibo(pagamento, true)}
+                    </div>
+                </div>
+                
+                <script>
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            window.close();
+                        }, 250);
+                    };
+                </script>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    };
+
+    // Função auxiliar para gerar HTML do recibo
+    const gerarHTMLRecibo = (pag, isCopia) => {
+        const parcelasHTML = pag.parcelasPagas?.length > 0 ?
+            pag.parcelasPagas.map(p => `
+                <tr>
+                    <td>${p.numero}ª Prestação</td>
+                    <td style="text-align: right;">${formatarNumero(p.valorAlocado)}</td>
+                    <td>Amortização</td>
+                </tr>
+            `).join('') :
+            `<tr>
+                <td>Prestação</td>
+                <td style="text-align: right;">${formatarNumero(pag.valorPago)}</td>
+                <td>Amortização</td>
+            </tr>`;
+
+        return `
+            <div class="cabecalho">
+                <img src="${logoRecibo}" alt="Logo" />
+            </div>
+            <div class="titulo">RECIBO</div>
+            <div class="numero-recibo">Nº ${pag.numeroRecibo || '______'}</div>
+            
+            <div class="dados">
+                <div class="linha-dado"><span class="label">Data/Hora:</span>${dataFormatada}</div>
+                <div class="linha-dado"><span class="label">Operador:</span>${pag.nomeOperador || pag.operador || '___________'}</div>
+                <div class="linha-dado"><span class="label">Recebemos de:</span>${(pag.cliente || '').toUpperCase()}</div>
+                <div class="linha-dado"><span class="label">BI/NUIT:</span>${pag.documento || pag.nuit || '__________'}</div>
+                <div class="linha-dado"><span class="label">Forma Pag.:</span>${pag.formaPagamento || 'numerário'}</div>
+                <div class="linha-dado"><span class="label">Valor:</span><strong>${formatarMoeda(pag.valorPago)}</strong></div>
+            </div>
+            
+            <div class="valor-extenso">(${valorExtenso})</div>
+            
+            <div class="linha-dado"><span class="label">Ref. Crédito:</span>Nº ${pag.numeroCredito || pag.credito || '____'}</div>
+            
+            <table class="tabela-parcelas">
+                <thead>
+                    <tr>
+                        <th style="width: 50mm;">Parcela(s)</th>
+                        <th style="width: 50mm; text-align: right;">Valor</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${parcelasHTML}
+                    <tr class="total">
+                        <td>Total:</td>
+                        <td style="text-align: right;">${formatarNumero(pag.totalAlocado || pag.valorPago)}</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="saldo-divida">
+                <strong>Saldo em Dívida:</strong> ${formatarMoeda(pag.saldoDevedor || 0)}
+            </div>
+            
+            ${pag.troco > 0 ? `<div class="troco">Troco: ${formatarMoeda(pag.troco)}</div>` : ''}
+            
+            <div class="assinaturas">
+                <strong>Assinaturas:</strong>
+                <div class="assinatura-linha">
+                    <div class="assinatura-box">CAIXA</div>
+                    <div class="assinatura-box">CLIENTE</div>
+                </div>
+            </div>
+            
+            <div class="rodape">Sistema de Gestão de Microcrédito</div>
+        `;
+    };
 
     return (
         <div style={{ padding: '16px' }}>
@@ -324,7 +602,7 @@ const ReciboPagamento = ({ pagamento, onClose }) => {
                     <Button type="primary" icon={<FilePdfOutlined />} onClick={() => gerarPDF(pagamento)} size="large">
                         Gerar PDF
                     </Button>
-                    <Button icon={<PrinterOutlined />} onClick={() => window.print()} size="large">
+                    <Button icon={<PrinterOutlined />} onClick={handlePrint} size="large">
                         Imprimir
                     </Button>
                     {onClose && (
@@ -337,10 +615,11 @@ const ReciboPagamento = ({ pagamento, onClose }) => {
 
             {/* Preview Original */}
             <div style={{
-                maxWidth: '600px', margin: '0 auto 16px', border: '2px solid #000', borderRadius: 4,
-                padding: 20, backgroundColor: '#fff', fontFamily: '"Courier New", monospace', fontSize: 12
+                maxWidth: '600px', margin: '0 auto 16px', border: `2px solid ${token.colorBorder}`, borderRadius: token.borderRadiusLG,
+                padding: 20, backgroundColor: token.colorBgContainer, fontFamily: '"Courier New", monospace', fontSize: 12,
+                color: token.colorText
             }}>
-                <div style={{ textAlign: 'center', borderBottom: '1px dashed #ccc', paddingBottom: 8, marginBottom: 12 }}>
+                <div style={{ textAlign: 'center', borderBottom: `1px dashed ${token.colorBorder}`, paddingBottom: 8, marginBottom: 12 }}>
                     <img src={logoRecibo} alt="Logo" style={{ maxWidth: '100%', height: 'auto', maxHeight: 60 }} />
                 </div>
                 <div style={{ textAlign: 'center', marginBottom: 12 }}>
@@ -349,43 +628,43 @@ const ReciboPagamento = ({ pagamento, onClose }) => {
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
                     <tbody>
-                        <tr><td style={{ fontWeight: 'bold', width: '28%', padding: '1px 0' }}>Data/Hora:</td><td>{dataFormatada}</td></tr>
-                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0' }}>Operador:</td><td>{pagamento.nomeOperador || pagamento.operador || '___________'}</td></tr>
-                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0' }}>Recebemos de:</td><td>{(pagamento.cliente || '').toUpperCase()}</td></tr>
-                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0' }}>BI/NUIT:</td><td>{pagamento.documento || pagamento.nuit || '__________'}</td></tr>
-                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0' }}>Forma Pag.:</td><td>{pagamento.formaPagamento}</td></tr>
-                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0' }}>Valor:</td><td style={{ fontWeight: 'bold', fontSize: 14 }}>{formatarMoeda(pagamento.valorPago)}</td></tr>
-                        <tr><td colSpan={2} style={{ fontStyle: 'italic', fontSize: 10 }}>({valorExtenso})</td></tr>
-                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0' }}>Ref. Crédito:</td><td>Nº {pagamento.numeroCredito || pagamento.credito}</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', width: '28%', padding: '1px 0', color: token.colorTextLabel }}>Data/Hora:</td><td>{dataFormatada}</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0', color: token.colorTextLabel }}>Operador:</td><td>{pagamento.nomeOperador || pagamento.operador || '___________'}</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0', color: token.colorTextLabel }}>Recebemos de:</td><td>{(pagamento.cliente || '').toUpperCase()}</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0', color: token.colorTextLabel }}>BI/NUIT:</td><td>{pagamento.documento || pagamento.nuit || '__________'}</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0', color: token.colorTextLabel }}>Forma Pag.:</td><td>{pagamento.formaPagamento}</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0', color: token.colorTextLabel }}>Valor:</td><td style={{ fontWeight: 'bold', fontSize: 14, color: token.colorSuccess }}>{formatarMoeda(pagamento.valorPago)}</td></tr>
+                        <tr><td colSpan={2} style={{ fontStyle: 'italic', fontSize: 10, color: token.colorTextSecondary }}>({valorExtenso})</td></tr>
+                        <tr><td style={{ fontWeight: 'bold', padding: '1px 0', color: token.colorTextLabel }}>Ref. Crédito:</td><td>Nº {pagamento.numeroCredito || pagamento.credito}</td></tr>
                     </tbody>
                 </table>
 
                 {/* Tabela Parcelas */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12, border: '1px solid #000' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12, border: `1px solid ${token.colorBorder}` }}>
                     <thead>
-                        <tr style={{ backgroundColor: '#f5f5f5' }}>
-                            <th style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'left' }}>Parcela(s)</th>
-                            <th style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'right' }}>Valor</th>
-                            <th style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'left' }}>Descrição</th>
+                        <tr style={{ backgroundColor: token.colorFillAlter }}>
+                            <th style={{ border: `1px solid ${token.colorBorder}`, padding: '3px 6px', textAlign: 'left', color: token.colorText }}>Parcela(s)</th>
+                            <th style={{ border: `1px solid ${token.colorBorder}`, padding: '3px 6px', textAlign: 'right', color: token.colorText }}>Valor</th>
+                            <th style={{ border: `1px solid ${token.colorBorder}`, padding: '3px 6px', textAlign: 'left', color: token.colorText }}>Descrição</th>
                         </tr>
                     </thead>
                     <tbody>
                         {pagamento.parcelasPagas?.length > 0 ? (
                             pagamento.parcelasPagas.map((p, i) => (
                                 <tr key={i}>
-                                    <td style={{ border: '1px solid #ccc', padding: '2px 6px' }}>{p.numero}ª Prestação</td>
-                                    <td style={{ border: '1px solid #ccc', padding: '2px 6px', textAlign: 'right' }}>{formatarMoeda(p.valorAlocado)}</td>
-                                    <td style={{ border: '1px solid #ccc', padding: '2px 6px' }}>Amortização</td>
+                                    <td style={{ border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px' }}>{p.numero}ª Prestação</td>
+                                    <td style={{ border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px', textAlign: 'right' }}>{formatarMoeda(p.valorAlocado)}</td>
+                                    <td style={{ border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px' }}>Amortização</td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td style={{ border: '1px solid #ccc', padding: '2px 6px' }}>Prestação</td>
-                                <td style={{ border: '1px solid #ccc', padding: '2px 6px', textAlign: 'right' }}>{formatarMoeda(pagamento.valorPago)}</td>
-                                <td style={{ border: '1px solid #ccc', padding: '2px 6px' }}>Amortização</td>
+                                <td style={{ border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px' }}>Prestação</td>
+                                <td style={{ border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px', textAlign: 'right' }}>{formatarMoeda(pagamento.valorPago)}</td>
+                                <td style={{ border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px' }}>Amortização</td>
                             </tr>
                         )}
-                        <tr style={{ fontWeight: 'bold', borderTop: '1px solid #000' }}>
+                        <tr style={{ fontWeight: 'bold', borderTop: `1px solid ${token.colorBorder}` }}>
                             <td style={{ padding: '2px 6px', textAlign: 'right' }}>Total:</td>
                             <td style={{ padding: '2px 6px', textAlign: 'right' }}>{formatarMoeda(pagamento.totalAlocado || pagamento.valorPago)}</td>
                             <td></td>
@@ -393,23 +672,23 @@ const ReciboPagamento = ({ pagamento, onClose }) => {
                     </tbody>
                 </table>
 
-                <div style={{ backgroundColor: '#f9f9f9', padding: '6px 10px', marginBottom: 8, borderRadius: 3 }}>
+                <div style={{ backgroundColor: token.colorFillTertiary, padding: '6px 10px', marginBottom: 8, borderRadius: token.borderRadiusSM }}>
                     <strong>Saldo em Dívida:</strong> {formatarMoeda(pagamento.saldoDevedor || 0)}
                 </div>
                 {pagamento.troco > 0 && (
-                    <div style={{ color: '#d46b08', marginBottom: 8 }}><strong>Troco:</strong> {formatarMoeda(pagamento.troco)}</div>
+                    <div style={{ color: token.colorWarning, marginBottom: 8 }}><strong>Troco:</strong> {formatarMoeda(pagamento.troco)}</div>
                 )}
                 <div style={{ marginTop: 24 }}><strong>Assinaturas:</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
-                    <div style={{ width: '40%', borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center' }}>CAIXA</div>
-                    <div style={{ width: '40%', borderTop: '1px solid #000', paddingTop: 4, textAlign: 'center' }}>CLIENTE</div>
+                    <div style={{ width: '40%', borderTop: `1px solid ${token.colorText}`, paddingTop: 4, textAlign: 'center' }}>CAIXA</div>
+                    <div style={{ width: '40%', borderTop: `1px solid ${token.colorText}`, paddingTop: 4, textAlign: 'center' }}>CLIENTE</div>
                 </div>
             </div>
 
             {/* Indicador da Cópia */}
             <div style={{
-                maxWidth: '600px', margin: '0 auto', border: '1px dashed #ccc', borderRadius: 4,
-                padding: 12, textAlign: 'center', color: '#999', fontSize: 12
+                maxWidth: '600px', margin: '0 auto', border: `1px dashed ${token.colorBorder}`, borderRadius: token.borderRadiusSM,
+                padding: 12, textAlign: 'center', color: token.colorTextSecondary, fontSize: 12
             }}>
                 ✂ Destaque aqui ✂<br />
                 <small>O PDF gerado contém ORIGINAL + CÓPIA em uma única folha A4</small>

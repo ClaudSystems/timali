@@ -38,14 +38,6 @@ class Credito implements Serializable {
     Boolean quitado = false
     Boolean ignorarPagamentosNoPrazo = false
 
-    BigDecimal totalPrevisto = 0.0
-    BigDecimal totalPago = 0.0
-    BigDecimal totalPagoNoPrazo = 0.0
-    BigDecimal totalEmDivida = 0.0
-    BigDecimal totalJurosPago = 0.0
-    BigDecimal totalMultaPago = 0.0
-    BigDecimal totalJurosDemoraPago = 0.0
-
     BigDecimal valorRemissao = 0.0
     String motivoRemissao
 
@@ -85,20 +77,75 @@ class Credito implements Serializable {
         quitado nullable: false
         ignorarPagamentosNoPrazo nullable: false
 
-        totalPrevisto nullable: false, min: 0.0, scale: 2
-        totalPago nullable: false, min: 0.0, scale: 2
-        totalPagoNoPrazo nullable: false, min: 0.0, scale: 2
-        totalEmDivida nullable: false, min: 0.0, scale: 2
-        totalJurosPago nullable: false, min: 0.0, scale: 2
-        totalMultaPago nullable: false, min: 0.0, scale: 2
-        totalJurosDemoraPago nullable: false, min: 0.0, scale: 2
-
         valorRemissao nullable: true, min: 0.0, scale: 2
         motivoRemissao nullable: true, maxSize: 500
 
         status nullable: false
         criadoPor nullable: true, maxSize: 100
         atualizadoPor nullable: true, maxSize: 100
+    }
+
+    // Métodos getters calculados baseados nas parcelas
+    BigDecimal getTotalPrevisto() {
+        try {
+            if (!parcelas) return BigDecimal.ZERO
+            return (parcelas.sum { it?.valorParcela ?: BigDecimal.ZERO } ?: BigDecimal.ZERO) as BigDecimal
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
+    }
+
+    BigDecimal getTotalPago() {
+        try {
+            if (!parcelas) return BigDecimal.ZERO
+            return (parcelas.sum { it?.valorPago ?: BigDecimal.ZERO } ?: BigDecimal.ZERO) as BigDecimal
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
+    }
+
+    BigDecimal getTotalPagoNoPrazo() {
+        try {
+            if (!parcelas) return BigDecimal.ZERO
+            return (parcelas.findAll { it?.pagoNoPrazo }?.sum { it?.valorPago ?: BigDecimal.ZERO } ?: BigDecimal.ZERO) as BigDecimal
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
+    }
+
+    BigDecimal getTotalEmDivida() {
+        try {
+            return getTotalPrevisto() - getTotalPago()
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
+    }
+
+    BigDecimal getTotalJurosPago() {
+        try {
+            if (!parcelas) return BigDecimal.ZERO
+            return (parcelas.sum { it?.valorPagoJuros ?: BigDecimal.ZERO } ?: BigDecimal.ZERO) as BigDecimal
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
+    }
+
+    BigDecimal getTotalMultaPago() {
+        try {
+            if (!parcelas) return BigDecimal.ZERO
+            return (parcelas.sum { it?.valorPagoMulta ?: BigDecimal.ZERO } ?: BigDecimal.ZERO) as BigDecimal
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
+    }
+
+    BigDecimal getTotalJurosDemoraPago() {
+        try {
+            if (!parcelas) return BigDecimal.ZERO
+            return (parcelas.sum { it?.valorPagoJurosDemora ?: BigDecimal.ZERO } ?: BigDecimal.ZERO) as BigDecimal
+        } catch (Exception e) {
+            return BigDecimal.ZERO
+        }
     }
 
     static mapping = {
@@ -110,6 +157,9 @@ class Credito implements Serializable {
         numero index: 'idx_credito_numero'
         entidade index: 'idx_credito_entidade'
         status index: 'idx_credito_status'
+        
+        percentualDeJuros sqlType: 'decimal(10,4)'
+        percentualJurosDeDemora sqlType: 'decimal(10,4)'
     }
 }
 

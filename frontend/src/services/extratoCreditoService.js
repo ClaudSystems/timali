@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import moment from 'moment';
+import * as XLSX from 'xlsx';
 import logoRecibo from '../assets/images/logo.png';
 
 const safeString = (value) => {
@@ -194,6 +195,95 @@ const extratoCreditoService = {
         const fileName = `Extrato_Credito_${safeString(credito.numero)}.pdf`;
         doc.save(fileName);
         console.log('📄 Extrato gerado com sucesso:', fileName);
+    },
+
+    async gerarExtratoExcel(dados) {
+        const { credito, cliente, linhas, totais } = dados;
+
+        if (!credito || !linhas) {
+            console.error('Dados inválidos para gerar extrato Excel');
+            return;
+        }
+
+        // Criar workbook
+        const wb = XLSX.utils.book_new();
+
+        // Dados do cabeçalho (metadados)
+        const headerData = [
+            ['EXTRATO DE CRÉDITO'],
+            ['Data:', moment().format('DD/MM/YY HH:mm')],
+            [],
+            ['DADOS DO CLIENTE'],
+            ['Código do Cliente:', safeString(cliente?.codigo)],
+            ['Nome:', safeString(cliente?.nome).toUpperCase()],
+            [safeString(cliente?.tipoDocumento) || 'BI', 'Nº ' + safeString(cliente?.documento)],
+            ['Telefone:', safeString(cliente?.telefone)],
+            ['Operador:', safeString(credito.criadoPor)],
+            [],
+            ['DADOS DO CRÉDITO'],
+            ['Crédito Nº:', safeString(credito.numero)],
+            ['Data da Concessão:', credito.dataEmissao ? moment(credito.dataEmissao).format('DD/MM/YYYY') : '-'],
+            ['Valor Creditado:', formatarMoeda(credito.valorConcedido || 0)],
+            ['Juros:', (credito.percentualDeJuros || 0) + '%'],
+            ['Juros De Mora:', (credito.percentualJurosDeDemora || 0) + '%'],
+            ['Periodicidade:', safeString(credito.periodicidade)],
+            ['Forma de Cálculo:', safeString(credito.formaDeCalculo)],
+            ['Nº de Prestações:', (credito.numeroDePrestacoesEmDia || 0) + '/' + (credito.numeroDePrestacoes || 0)],
+            [],
+        ];
+
+        // Tabela de movimentos
+        const tableHeaders = ['Data', 'Descrição', 'Débito', 'Crédito', 'V. em Mora', 'Juros Mora', 'Dias Mora', 'Saldo'];
+        
+        const tableData = linhas.map(linha => [
+            linha.data ? moment(linha.data).format('DD/MM/YY') : '-',
+            safeString(linha.descricao),
+            Number(linha.debito) > 0 ? formatarNumero(linha.debito) : '',
+            Number(linha.credito) > 0 ? formatarNumero(linha.credito) : '',
+            Number(linha.valorEmMora) > 0 ? formatarNumero(linha.valorEmMora) : '',
+            Number(linha.jurosDeMora) > 0 ? formatarNumero(linha.jurosDeMora) : '',
+            Number(linha.diasDeMora) > 0 ? String(linha.diasDeMora) : '',
+            formatarNumero(linha.saldo || 0),
+        ]);
+
+        // Linha de totais
+        const totalsRow = [
+            '',
+            'TOTAIS',
+            formatarNumero(totais?.totalDebito || 0),
+            formatarNumero(totais?.totalCredito || 0),
+            formatarNumero(totais?.totalMoras || 0),
+            formatarNumero(totais?.totalJurosDeMora || 0),
+            '',
+            formatarNumero(totais?.totalEmMora || 0)
+        ];
+
+        // Combinar headers e dados da tabela
+        const fullTableData = [tableHeaders, ...tableData, totalsRow];
+
+        // Criar worksheet com metadados e tabela
+        const ws = XLSX.utils.aoa_to_sheet([...headerData, [], ['MOVIMENTOS'], ...fullTableData]);
+
+        // Ajustar larguras das colunas
+        ws['!cols'] = [
+            { wch: 12 },  // Data
+            { wch: 40 },  // Descrição
+            { wch: 15 },  // Débito
+            { wch: 15 },  // Crédito
+            { wch: 15 },  // V. em Mora
+            { wch: 15 },  // Juros Mora
+            { wch: 10 },  // Dias Mora
+            { wch: 15 },  // Saldo
+        ];
+
+        // Adicionar worksheet ao workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Extrato');
+
+        // Gerar arquivo
+        const fileName = `Extrato_Credito_${safeString(credito.numero)}_${moment().format('YYYYMMDD_HHmmss')}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
+        console.log('📊 Extrato Excel gerado com sucesso:', fileName);
     }
 };
 

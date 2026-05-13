@@ -1,12 +1,13 @@
 // src/components/credito/ExtratoCreditoModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Button, Space, Table, Descriptions, Card, Typography, Divider, Spin, message, Row, Col, Tag } from 'antd';
-import { FilePdfOutlined, CloseOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Space, Table, Descriptions, Card, Typography, Divider, Spin, message, Row, Col, Tag, theme } from 'antd';
+import { FilePdfOutlined, CloseOutlined, ReloadOutlined, FileExcelOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import creditoService from '../../services/creditoService';
 import extratoCreditoService from '../../services/extratoCreditoService';
 
 const { Title, Text } = Typography;
+const { useToken } = theme;
 
 const formatarMoeda = (valor) => {
     return new Intl.NumberFormat('pt-MZ', {
@@ -25,9 +26,11 @@ const safeString = (value) => {
 };
 
 const ExtratoCreditoModal = ({ creditoId, onClose }) => {
+    const { token } = useToken();
     const [loading, setLoading] = useState(false);
     const [dados, setDados] = useState(null);
     const [gerandoPDF, setGerandoPDF] = useState(false);
+    const [gerandoExcel, setGerandoExcel] = useState(false);
 
     useEffect(() => {
         if (creditoId) {
@@ -63,6 +66,20 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
         }
     };
 
+    const handleGerarExcel = async () => {
+        if (!dados) return;
+        try {
+            setGerandoExcel(true);
+            await extratoCreditoService.gerarExtratoExcel(dados);
+            message.success('Excel gerado com sucesso!');
+        } catch (error) {
+            message.error('Erro ao gerar Excel');
+            console.error('Erro:', error);
+        } finally {
+            setGerandoExcel(false);
+        }
+    };
+
     const columns = [
         {
             title: 'Data',
@@ -85,7 +102,7 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
             width: 100,
             align: 'right',
             render: (valor) => Number(valor) > 0 ? (
-                <span style={{ color: '#1b4332', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
+                <span style={{ color: '#52c41a', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
             ) : ''
         },
         {
@@ -95,7 +112,7 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
             width: 100,
             align: 'right',
             render: (valor) => Number(valor) > 0 ? (
-                <span style={{ color: '#0077b6', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
+                <span style={{ color: '#1890ff', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
             ) : ''
         },
         {
@@ -105,7 +122,7 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
             width: 100,
             align: 'right',
             render: (valor) => Number(valor) > 0 ? (
-                <span style={{ color: '#e07a5f', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
+                <span style={{ color: '#fa8c16', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
             ) : ''
         },
         {
@@ -115,7 +132,7 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
             width: 100,
             align: 'right',
             render: (valor) => Number(valor) > 0 ? (
-                <span style={{ color: '#d4a373', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
+                <span style={{ color: '#faad14', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
             ) : ''
         },
         {
@@ -133,7 +150,7 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
             width: 100,
             align: 'right',
             render: (valor) => (
-                <span style={{ color: '#9b5de5', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
+                <span style={{ color: '#722ed1', fontWeight: 'bold' }}>{formatarMoeda(valor)}</span>
             )
         },
     ];
@@ -159,6 +176,17 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
                         Gerar PDF
                     </Button>
                     <Button
+                        type="primary"
+                        icon={<FileExcelOutlined />}
+                        onClick={handleGerarExcel}
+                        loading={gerandoExcel}
+                        size="large"
+                        disabled={!dados}
+                        style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                    >
+                        Gerar Excel
+                    </Button>
+                    <Button
                         icon={<ReloadOutlined />}
                         onClick={carregarExtrato}
                         loading={loading}
@@ -179,10 +207,10 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
                     <div style={{
                         maxWidth: '900px',
                         margin: '0 auto',
-                        backgroundColor: '#fff',
+                        backgroundColor: token.colorBgContainer,
                         padding: 24,
-                        borderRadius: 8,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                        borderRadius: token.borderRadiusLG,
+                        boxShadow: token.boxShadowSecondary
                     }}>
                         {/* Título */}
                         <div style={{ textAlign: 'center', marginBottom: 16 }}>
@@ -258,10 +286,10 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
                                 </Tag>
                             </Descriptions.Item>
                             <Descriptions.Item label="Total Pago">
-                                <Text strong style={{ color: '#3f8600' }}>{formatarMoeda(credito?.totalPago || 0)}</Text>
+                                <Text strong style={{ color: '#52c41a' }}>{formatarMoeda(credito?.totalPago || 0)}</Text>
                             </Descriptions.Item>
                             <Descriptions.Item label="Saldo Devedor">
-                                <Text strong style={{ color: '#cf1322' }}>{formatarMoeda(credito?.totalEmDivida || 0)}</Text>
+                                <Text strong style={{ color: '#ff4d4f' }}>{formatarMoeda(credito?.totalEmDivida || 0)}</Text>
                             </Descriptions.Item>
                         </Descriptions>
 
@@ -281,24 +309,24 @@ const ExtratoCreditoModal = ({ creditoId, onClose }) => {
                                 if (!totais) return null;
                                 return (
                                     <Table.Summary>
-                                        <Table.Summary.Row style={{ fontWeight: 'bold', backgroundColor: '#f5f5f5' }}>
+                                        <Table.Summary.Row style={{ fontWeight: 'bold', backgroundColor: token.colorFillAlter }}>
                                             <Table.Summary.Cell colSpan={2}>
                                                 TOTAIS
                                             </Table.Summary.Cell>
-                                            <Table.Summary.Cell align="right" style={{ color: '#1b4332' }}>
+                                            <Table.Summary.Cell align="right" style={{ color: '#52c41a' }}>
                                                 {formatarMoeda(totais.totalDebito || 0)}
                                             </Table.Summary.Cell>
-                                            <Table.Summary.Cell align="right" style={{ color: '#0077b6' }}>
+                                            <Table.Summary.Cell align="right" style={{ color: '#1890ff' }}>
                                                 {formatarMoeda(totais.totalCredito || 0)}
                                             </Table.Summary.Cell>
-                                            <Table.Summary.Cell align="right" style={{ color: '#e07a5f' }}>
+                                            <Table.Summary.Cell align="right" style={{ color: '#fa8c16' }}>
                                                 {formatarMoeda(totais.totalMoras || 0)}
                                             </Table.Summary.Cell>
-                                            <Table.Summary.Cell align="right" style={{ color: '#d4a373' }}>
+                                            <Table.Summary.Cell align="right" style={{ color: '#faad14' }}>
                                                 {formatarMoeda(totais.totalJurosDeMora || 0)}
                                             </Table.Summary.Cell>
                                             <Table.Summary.Cell></Table.Summary.Cell>
-                                            <Table.Summary.Cell align="right" style={{ color: '#9b5de5' }}>
+                                            <Table.Summary.Cell align="right" style={{ color: '#722ed1' }}>
                                                 {formatarMoeda(totais.totalEmMora || 0)}
                                             </Table.Summary.Cell>
                                         </Table.Summary.Row>
